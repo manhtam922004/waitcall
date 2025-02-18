@@ -24,17 +24,17 @@
     let peer;
     let myPeerId = null;
     let currentCall = null;
-    let isReady = true;       // trạng thái: true = sẵn sàng, false = đang trong cuộc gọi
+    let isReady = true;       // true: sẵn sàng, false: đang trong cuộc gọi
     let mediaStream = null;   // stream âm thanh của người dùng
 
-    // Hàm cập nhật thông báo trạng thái trên giao diện
+    // Cập nhật thông báo trạng thái trên giao diện
     function updateStatus(message) {
       document.getElementById('status').innerText = message;
     }
 
-    // Khởi tạo peer và các sự kiện liên quan
+    // Khởi tạo Peer và các sự kiện liên quan
     function initPeer() {
-      // Khởi tạo peer (sử dụng server cloud của PeerJS)
+      // Tạo đối tượng Peer (sử dụng server cloud của PeerJS)
       peer = new Peer();
 
       peer.on('open', function(id) {
@@ -45,7 +45,7 @@
         navigator.mediaDevices.getUserMedia({ audio: true })
           .then(stream => {
             mediaStream = stream;
-            // Sau khi có stream, bắt đầu tìm kiếm đối tác sau vài giây
+            // Sau khi lấy được stream, bắt đầu kiểm tra đối tác sau vài giây
             setTimeout(checkForPartner, 2000);
           })
           .catch(err => {
@@ -54,9 +54,9 @@
           });
       });
 
-      // Lắng nghe các cuộc gọi đến
+      // Khi nhận được cuộc gọi đến
       peer.on('call', function(call) {
-        // Nếu không sẵn sàng thì từ chối cuộc gọi
+        // Nếu không sẵn sàng, từ chối cuộc gọi
         if (!isReady) {
           call.close();
           return;
@@ -69,14 +69,13 @@
         setupCallEvents(call);
       });
 
-      // Lắng nghe kết nối data từ các peer khác
+      // Lắng nghe các kết nối data từ các peer khác
       peer.on('connection', function(conn) {
         conn.on('data', function(data) {
-          // Khi nhận yêu cầu kiểm tra trạng thái từ một peer khác
           if (data.type === "ready?") {
+            // Nếu đang sẵn sàng, trả lời "yes" và chuyển trạng thái bận
             if (isReady) {
               conn.send({ type: "ready-response", status: "yes" });
-              // Lưu ý: bên này không chủ động gọi, mà để bên kia thực hiện gọi đến
               isReady = false;
               updateStatus("Đang nói chuyện với: " + conn.peer);
             } else {
@@ -87,38 +86,39 @@
       });
     }
 
-    // Hàm dùng listAllPeers (nếu server cho phép) để tìm các peer khác
+    // Hàm kiểm tra và kết nối với đối tác
     function checkForPartner() {
-      if (!isReady) return; // Nếu đang bận, không kiểm tra
-      // Lấy danh sách tất cả các peer (lưu ý: hàm này phụ thuộc vào cấu hình server PeerJS)
+      if (!isReady) return; // Nếu đang bận thì không kiểm tra
+
+      // Sử dụng listAllPeers để lấy danh sách các peer (lưu ý: chức năng này phụ thuộc vào cấu hình của Cloud Server PeerJS)
       peer.listAllPeers(function(peers) {
         // Loại bỏ bản thân
         let candidates = peers.filter(pid => pid !== myPeerId);
-        // Áp dụng quy tắc: chỉ kết nối nếu id của đối tác lớn hơn id của mình
-        // (điều này giúp tránh trường hợp cả 2 cùng gọi)
-        let target = candidates.find(pid => pid > myPeerId);
-        if (target) {
-          // Tạo kết nối data để hỏi trạng thái
-          let conn = peer.connect(target);
-          conn.on('open', function() {
+        if(candidates.length === 0) {
+          // Nếu không có peer nào khác, thử lại sau 3 giây
+          return setTimeout(checkForPartner, 3000);
+        }
+        // Gửi yêu cầu đến tất cả các candidate
+        candidates.forEach(candidate => {
+          if (!isReady) return;
+          let conn = peer.connect(candidate);
+          conn.on('open', function(){
             conn.send({ type: "ready?" });
           });
           conn.on('data', function(data) {
-            if (data.type === "ready-response" && data.status === "yes") {
-              // Nếu đối tác sẵn sàng, bắt đầu gọi
+            if (data.type === "ready-response" && data.status === "yes" && isReady) {
+              // Nếu nhận được phản hồi sẵn sàng, bắt đầu cuộc gọi
               isReady = false;
-              updateStatus("Đang nói chuyện với: " + target);
-              startCall(target);
+              updateStatus("Đang nói chuyện với: " + candidate);
+              startCall(candidate);
             }
           });
           conn.on('error', function(err) {
-            console.error("Lỗi kết nối data:", err);
+            console.error("Lỗi kết nối data với " + candidate + ": ", err);
           });
-        }
-        // Nếu chưa tìm được đối tác, thử lại sau 3 giây
-        if (isReady) {
-          setTimeout(checkForPartner, 3000);
-        }
+        });
+        // Nếu sau khi gửi yêu cầu mà vẫn chưa kết nối, thử lại sau 3 giây
+        setTimeout(checkForPartner, 3000);
       });
     }
 
