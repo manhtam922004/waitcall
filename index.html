@@ -1,108 +1,168 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="UTF-8">
+  <title>Random Audio Chat Peer-to-Peer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Peer Audio Chat</title>
-  <!-- Bootstrap CSS -->
+  <!-- Bootstrap CSS cho responsive trên PC, tablet, điện thoại -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- User Information Modal -->
-  <div class="modal" tabindex="-1" role="dialog" id="userInfoModal" data-backdrop="static" data-keyboard="false">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Enter Your Information</h5>
-        </div>
-        <div class="modal-body">
-          <form id="userInfoForm">
-            <!-- Personal Info -->
-            <div class="form-group">
-              <label for="gender">Gender</label>
-              <select id="gender" class="form-control" required>
-                <option value="">Select</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="age">Age</label>
-              <input type="number" id="age" class="form-control" required>
-            </div>
-            <div class="form-group">
-              <label for="country">Country</label>
-              <select id="country" class="form-control" required>
-                <option value="">Select</option>
-              </select>
-            </div>
-            <div class="form-group" id="provinceContainer">
-              <label for="province">Province/State</label>
-              <!-- Ban đầu là input, sau khi chọn country sẽ được cập nhật (nếu có dữ liệu về states) -->
-              <input type="text" id="province" class="form-control" required>
-            </div>
-            <hr>
-            <!-- Desired Partner Info (tùy chọn) -->
-            <h5>Desired Partner Information (Optional)</h5>
-            <div class="form-group">
-              <label for="desiredGender">Desired Gender</label>
-              <select id="desiredGender" class="form-control">
-                <option value="">Any</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Desired Age Range</label>
-              <div class="form-row">
-                <div class="col">
-                  <input type="number" id="desiredAgeMin" class="form-control" placeholder="Min">
-                </div>
-                <div class="col">
-                  <input type="number" id="desiredAgeMax" class="form-control" placeholder="Max">
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="desiredCountry">Desired Country</label>
-              <select id="desiredCountry" class="form-control">
-                <option value="">Any</option>
-              </select>
-            </div>
-            <div class="form-group" id="desiredProvinceContainer">
-              <label for="desiredProvince">Desired Province/State</label>
-              <input type="text" id="desiredProvince" class="form-control">
-            </div>
-            <button type="submit" class="btn btn-primary btn-block">Start Chatting</button>
-          </form>
-        </div>
-      </div>
-    </div>
+  <div class="container text-center mt-5">
+    <h1>Random Audio Chat</h1>
+    <div id="status" class="alert alert-info">Đang khởi tạo...</div>
+    <!-- Nút kết thúc cuộc gọi -->
+    <button id="endCall" class="btn btn-danger">Kết thúc cuộc gọi</button>
   </div>
 
-  <!-- Call Interface -->
-  <div class="container" id="callContainer" style="display:none;">
-    <div class="text-center mt-5">
-      <h3 id="statusText">Waiting for match...</h3>
-      <audio id="remoteAudio" autoplay></audio>
-      <div class="mt-3">
-        <button id="endCallBtn" class="btn btn-danger">End Call</button>
-      </div>
-      <div class="form-check mt-3">
-        <input type="checkbox" class="form-check-input" id="autoReconnect">
-        <label class="form-check-label" for="autoReconnect">Auto reconnect when call ends</label>
-      </div>
-    </div>
-  </div>
-
-  <!-- Scripts -->
-  <!-- PeerJS library -->
+  <!-- Nhúng PeerJS, jQuery và Bootstrap JS -->
   <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
-  <!-- jQuery & Bootstrap JS -->
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- Custom JS -->
-  <script src="script.js"></script>
+
+  <script>
+    let peer;
+    let myPeerId = null;
+    let currentCall = null;
+    let isReady = true;       // trạng thái: true = sẵn sàng, false = đang trong cuộc gọi
+    let mediaStream = null;   // stream âm thanh của người dùng
+
+    // Hàm cập nhật thông báo trạng thái trên giao diện
+    function updateStatus(message) {
+      document.getElementById('status').innerText = message;
+    }
+
+    // Khởi tạo peer và các sự kiện liên quan
+    function initPeer() {
+      // Khởi tạo peer (sử dụng server cloud của PeerJS)
+      peer = new Peer();
+
+      peer.on('open', function(id) {
+        myPeerId = id;
+        console.log("My peer ID:", id);
+        updateStatus("Đang chờ đối tác...");
+        // Lấy stream âm thanh của người dùng
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            mediaStream = stream;
+            // Sau khi có stream, bắt đầu tìm kiếm đối tác sau vài giây
+            setTimeout(checkForPartner, 2000);
+          })
+          .catch(err => {
+            console.error("Không lấy được stream âm thanh:", err);
+            updateStatus("Không lấy được stream âm thanh");
+          });
+      });
+
+      // Lắng nghe các cuộc gọi đến
+      peer.on('call', function(call) {
+        // Nếu không sẵn sàng thì từ chối cuộc gọi
+        if (!isReady) {
+          call.close();
+          return;
+        }
+        isReady = false;
+        currentCall = call;
+        updateStatus("Đang nói chuyện với: " + call.peer);
+        // Trả lời cuộc gọi với stream của bạn
+        call.answer(mediaStream);
+        setupCallEvents(call);
+      });
+
+      // Lắng nghe kết nối data từ các peer khác
+      peer.on('connection', function(conn) {
+        conn.on('data', function(data) {
+          // Khi nhận yêu cầu kiểm tra trạng thái từ một peer khác
+          if (data.type === "ready?") {
+            if (isReady) {
+              conn.send({ type: "ready-response", status: "yes" });
+              // Lưu ý: bên này không chủ động gọi, mà để bên kia thực hiện gọi đến
+              isReady = false;
+              updateStatus("Đang nói chuyện với: " + conn.peer);
+            } else {
+              conn.send({ type: "ready-response", status: "busy" });
+            }
+          }
+        });
+      });
+    }
+
+    // Hàm dùng listAllPeers (nếu server cho phép) để tìm các peer khác
+    function checkForPartner() {
+      if (!isReady) return; // Nếu đang bận, không kiểm tra
+      // Lấy danh sách tất cả các peer (lưu ý: hàm này phụ thuộc vào cấu hình server PeerJS)
+      peer.listAllPeers(function(peers) {
+        // Loại bỏ bản thân
+        let candidates = peers.filter(pid => pid !== myPeerId);
+        // Áp dụng quy tắc: chỉ kết nối nếu id của đối tác lớn hơn id của mình
+        // (điều này giúp tránh trường hợp cả 2 cùng gọi)
+        let target = candidates.find(pid => pid > myPeerId);
+        if (target) {
+          // Tạo kết nối data để hỏi trạng thái
+          let conn = peer.connect(target);
+          conn.on('open', function() {
+            conn.send({ type: "ready?" });
+          });
+          conn.on('data', function(data) {
+            if (data.type === "ready-response" && data.status === "yes") {
+              // Nếu đối tác sẵn sàng, bắt đầu gọi
+              isReady = false;
+              updateStatus("Đang nói chuyện với: " + target);
+              startCall(target);
+            }
+          });
+          conn.on('error', function(err) {
+            console.error("Lỗi kết nối data:", err);
+          });
+        }
+        // Nếu chưa tìm được đối tác, thử lại sau 3 giây
+        if (isReady) {
+          setTimeout(checkForPartner, 3000);
+        }
+      });
+    }
+
+    // Hàm bắt đầu cuộc gọi tới peer target
+    function startCall(targetId) {
+      if (!mediaStream) return;
+      let call = peer.call(targetId, mediaStream);
+      currentCall = call;
+      setupCallEvents(call);
+    }
+
+    // Thiết lập các sự kiện cho cuộc gọi hiện tại
+    function setupCallEvents(call) {
+      call.on('stream', function(remoteStream) {
+        // Tạo thẻ audio để phát stream của đối phương
+        let audio = document.createElement('audio');
+        audio.srcObject = remoteStream;
+        audio.play();
+      });
+
+      call.on('close', function() {
+        updateStatus("Cuộc gọi đã kết thúc. Đang chờ đối tác...");
+        currentCall = null;
+        isReady = true;
+        // Tìm đối tác mới sau 2 giây
+        setTimeout(checkForPartner, 2000);
+      });
+
+      call.on('error', function(err) {
+        console.error("Lỗi cuộc gọi:", err);
+        updateStatus("Lỗi cuộc gọi");
+        isReady = true;
+        setTimeout(checkForPartner, 2000);
+      });
+    }
+
+    // Sự kiện nút kết thúc cuộc gọi
+    document.getElementById('endCall').addEventListener('click', function() {
+      if (currentCall) {
+        currentCall.close();
+      }
+    });
+
+    window.onload = initPeer;
+  </script>
 </body>
 </html>
