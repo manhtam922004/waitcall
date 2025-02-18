@@ -1,168 +1,178 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Random Audio Chat Peer-to-Peer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Bootstrap CSS cho responsive trên PC, tablet, điện thoại -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Voice Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+        }
+
+        #status {
+            font-size: 20px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 600px) {
+            button {
+                width: 100%;
+                padding: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="container text-center mt-5">
-    <h1>Random Audio Chat</h1>
-    <div id="status" class="alert alert-info">Đang khởi tạo...</div>
-    <!-- Nút kết thúc cuộc gọi -->
-    <button id="endCall" class="btn btn-danger">Kết thúc cuộc gọi</button>
-  </div>
+    <div class="container">
+        <h1>Random Voice Chat</h1>
+        <div id="status">Click 'Start' to begin</div>
+        <button id="startButton" onclick="startConnection()">Start</button>
+        <button id="endButton" onclick="endCall()" disabled>End Call</button>
+        <label>
+            <input type="checkbox" id="autoConnect" checked> Auto connect to new peer
+        </label>
+    </div>
 
-  <!-- Nhúng PeerJS, jQuery và Bootstrap JS -->
-  <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
-  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script>
+        let peer = null;
+        let currentConnection = null;
+        let localStream = null;
+        const audioElements = {};
 
-  <script>
-    let peer;
-    let myPeerId = null;
-    let currentCall = null;
-    let isReady = true;       // true: sẵn sàng, false: đang trong cuộc gọi
-    let mediaStream = null;   // stream âm thanh của người dùng
+        async function startConnection() {
+            document.getElementById('startButton').disabled = true;
+            document.getElementById('endButton').disabled = false;
+            document.getElementById('status').textContent = 'Connecting...';
 
-    // Cập nhật thông báo trạng thái trên giao diện
-    function updateStatus(message) {
-      document.getElementById('status').innerText = message;
-    }
-
-    // Khởi tạo Peer và các sự kiện liên quan
-    function initPeer() {
-      // Tạo đối tượng Peer (sử dụng server cloud của PeerJS)
-      peer = new Peer();
-
-      peer.on('open', function(id) {
-        myPeerId = id;
-        console.log("My peer ID:", id);
-        updateStatus("Đang chờ đối tác...");
-        // Lấy stream âm thanh của người dùng
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then(stream => {
-            mediaStream = stream;
-            // Sau khi lấy được stream, bắt đầu kiểm tra đối tác sau vài giây
-            setTimeout(checkForPartner, 2000);
-          })
-          .catch(err => {
-            console.error("Không lấy được stream âm thanh:", err);
-            updateStatus("Không lấy được stream âm thanh");
-          });
-      });
-
-      // Khi nhận được cuộc gọi đến
-      peer.on('call', function(call) {
-        // Nếu không sẵn sàng, từ chối cuộc gọi
-        if (!isReady) {
-          call.close();
-          return;
-        }
-        isReady = false;
-        currentCall = call;
-        updateStatus("Đang nói chuyện với: " + call.peer);
-        // Trả lời cuộc gọi với stream của bạn
-        call.answer(mediaStream);
-        setupCallEvents(call);
-      });
-
-      // Lắng nghe các kết nối data từ các peer khác
-      peer.on('connection', function(conn) {
-        conn.on('data', function(data) {
-          if (data.type === "ready?") {
-            // Nếu đang sẵn sàng, trả lời "yes" và chuyển trạng thái bận
-            if (isReady) {
-              conn.send({ type: "ready-response", status: "yes" });
-              isReady = false;
-              updateStatus("Đang nói chuyện với: " + conn.peer);
-            } else {
-              conn.send({ type: "ready-response", status: "busy" });
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                initializePeer();
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                document.getElementById('status').textContent = 'Microphone access required!';
             }
-          }
-        });
-      });
-    }
-
-    // Hàm kiểm tra và kết nối với đối tác
-    function checkForPartner() {
-      if (!isReady) return; // Nếu đang bận thì không kiểm tra
-
-      // Sử dụng listAllPeers để lấy danh sách các peer (lưu ý: chức năng này phụ thuộc vào cấu hình của Cloud Server PeerJS)
-      peer.listAllPeers(function(peers) {
-        // Loại bỏ bản thân
-        let candidates = peers.filter(pid => pid !== myPeerId);
-        if(candidates.length === 0) {
-          // Nếu không có peer nào khác, thử lại sau 3 giây
-          return setTimeout(checkForPartner, 3000);
         }
-        // Gửi yêu cầu đến tất cả các candidate
-        candidates.forEach(candidate => {
-          if (!isReady) return;
-          let conn = peer.connect(candidate);
-          conn.on('open', function(){
-            conn.send({ type: "ready?" });
-          });
-          conn.on('data', function(data) {
-            if (data.type === "ready-response" && data.status === "yes" && isReady) {
-              // Nếu nhận được phản hồi sẵn sàng, bắt đầu cuộc gọi
-              isReady = false;
-              updateStatus("Đang nói chuyện với: " + candidate);
-              startCall(candidate);
+
+        function initializePeer() {
+            peer = new Peer({
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                pingInterval: 5000
+            });
+
+            peer.on('open', id => {
+                document.getElementById('status').textContent = 'Searching for someone...';
+                connectToNewPeer();
+            });
+
+            peer.on('connection', connection => {
+                connection.on('open', () => {
+                    if (!currentConnection) {
+                        currentConnection = connection;
+                        setupConnection(connection);
+                    }
+                });
+            });
+
+            peer.on('error', error => {
+                console.error('PeerJS error:', error);
+                document.getElementById('status').textContent = 'Connection error!';
+            });
+        }
+
+        function connectToNewPeer() {
+            peer.listAllPeers(peers => {
+                const availablePeers = peers.filter(peerId => 
+                    peerId !== peer.id && 
+                    !currentConnection &&
+                    peerId.startsWith('peerjs')
+                );
+
+                if (availablePeers.length > 0) {
+                    const randomPeer = availablePeers[Math.floor(Math.random() * availablePeers.length)];
+                    const connection = peer.connect(randomPeer);
+                    setupConnection(connection);
+                    currentConnection = connection;
+                } else {
+                    setTimeout(connectToNewPeer, 2000);
+                }
+            });
+        }
+
+        function setupConnection(connection) {
+            connection.on('open', () => {
+                document.getElementById('status').textContent = 'Connected!';
+                startVoiceChat(connection);
+            });
+
+            connection.on('close', () => {
+                endCall();
+                if (document.getElementById('autoConnect').checked) {
+                    connectToNewPeer();
+                }
+            });
+        }
+
+        async function startVoiceChat(connection) {
+            const call = peer.call(connection.peer, localStream);
+            
+            call.on('stream', remoteStream => {
+                if (!audioElements[connection.peer]) {
+                    const audio = document.createElement('audio');
+                    audio.srcObject = remoteStream;
+                    audio.play();
+                    audioElements[connection.peer] = audio;
+                }
+            });
+
+            call.on('close', endCall);
+        }
+
+        function endCall() {
+            if (currentConnection) {
+                currentConnection.close();
+                currentConnection = null;
             }
-          });
-          conn.on('error', function(err) {
-            console.error("Lỗi kết nối data với " + candidate + ": ", err);
-          });
-        });
-        // Nếu sau khi gửi yêu cầu mà vẫn chưa kết nối, thử lại sau 3 giây
-        setTimeout(checkForPartner, 3000);
-      });
-    }
+            document.getElementById('status').textContent = 'Call ended';
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('endButton').disabled = true;
+            
+            if (document.getElementById('autoConnect').checked) {
+                startConnection();
+            }
+        }
 
-    // Hàm bắt đầu cuộc gọi tới peer target
-    function startCall(targetId) {
-      if (!mediaStream) return;
-      let call = peer.call(targetId, mediaStream);
-      currentCall = call;
-      setupCallEvents(call);
-    }
-
-    // Thiết lập các sự kiện cho cuộc gọi hiện tại
-    function setupCallEvents(call) {
-      call.on('stream', function(remoteStream) {
-        // Tạo thẻ audio để phát stream của đối phương
-        let audio = document.createElement('audio');
-        audio.srcObject = remoteStream;
-        audio.play();
-      });
-
-      call.on('close', function() {
-        updateStatus("Cuộc gọi đã kết thúc. Đang chờ đối tác...");
-        currentCall = null;
-        isReady = true;
-        // Tìm đối tác mới sau 2 giây
-        setTimeout(checkForPartner, 2000);
-      });
-
-      call.on('error', function(err) {
-        console.error("Lỗi cuộc gọi:", err);
-        updateStatus("Lỗi cuộc gọi");
-        isReady = true;
-        setTimeout(checkForPartner, 2000);
-      });
-    }
-
-    // Sự kiện nút kết thúc cuộc gọi
-    document.getElementById('endCall').addEventListener('click', function() {
-      if (currentCall) {
-        currentCall.close();
-      }
-    });
-
-    window.onload = initPeer;
-  </script>
+        // Check for media device support
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            document.getElementById('status').textContent = 'Audio is not supported in this browser';
+            document.getElementById('startButton').disabled = true;
+        }
+    </script>
 </body>
 </html>
