@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Peer Audio Chat</title>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- User Information Modal -->
+  <div class="modal" tabindex="-1" role="dialog" id="userInfoModal" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Enter Your Information</h5>
+        </div>
+        <div class="modal-body">
+          <form id="userInfoForm">
+            <!-- Personal Info -->
+            <div class="form-group">
+              <label for="gender">Gender</label>
+              <select id="gender" class="form-control" required>
+                <option value="">Select</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="age">Age</label>
+              <input type="number" id="age" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label for="country">Country</label>
+              <select id="country" class="form-control" required>
+                <option value="">Select</option>
+              </select>
+            </div>
+            <div class="form-group" id="provinceContainer">
+              <label for="province">Province/State</label>
+              <!-- Ban đầu là input, sau khi chọn country sẽ được cập nhật (nếu có dữ liệu về states) -->
+              <input type="text" id="province" class="form-control" required>
+            </div>
+            <hr>
+            <!-- Desired Partner Info (tùy chọn) -->
+            <h5>Desired Partner Information (Optional)</h5>
+            <div class="form-group">
+              <label for="desiredGender">Desired Gender</label>
+              <select id="desiredGender" class="form-control">
+                <option value="">Any</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Desired Age Range</label>
+              <div class="form-row">
+                <div class="col">
+                  <input type="number" id="desiredAgeMin" class="form-control" placeholder="Min">
+                </div>
+                <div class="col">
+                  <input type="number" id="desiredAgeMax" class="form-control" placeholder="Max">
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="desiredCountry">Desired Country</label>
+              <select id="desiredCountry" class="form-control">
+                <option value="">Any</option>
+              </select>
+            </div>
+            <div class="form-group" id="desiredProvinceContainer">
+              <label for="desiredProvince">Desired Province/State</label>
+              <input type="text" id="desiredProvince" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Start Chatting</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Call Interface -->
+  <div class="container" id="callContainer" style="display:none;">
+    <div class="text-center mt-5">
+      <h3 id="statusText">Waiting for match...</h3>
+      <audio id="remoteAudio" autoplay></audio>
+      <div class="mt-3">
+        <button id="endCallBtn" class="btn btn-danger">End Call</button>
+      </div>
+      <div class="form-check mt-3">
+        <input type="checkbox" class="form-check-input" id="autoReconnect">
+        <label class="form-check-label" for="autoReconnect">Auto reconnect when call ends</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <!-- PeerJS library -->
+  <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
+  <!-- jQuery & Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Custom JS -->
+  <script src="script.js"></script>
+</body>
+</html>
