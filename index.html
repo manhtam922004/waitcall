@@ -347,6 +347,62 @@
 			font-size: 40px;
 			color: white;
 		}
+		.switch-container {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			margin-left: 20px;
+		}
+		
+		.switch {
+			position: relative;
+			display: inline-block;
+			width: 50px;
+			height: 28px;
+		}
+		
+		.switch input {
+			opacity: 0;
+			width: 0;
+			height: 0;
+		}
+		
+		.slider {
+			position: absolute;
+			cursor: pointer;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background-color: #ccc;
+			transition: .4s;
+			border-radius: 34px;
+		}
+		
+		.slider:before {
+			position: absolute;
+			content: "";
+			height: 20px;
+			width: 20px;
+			left: 4px;
+			bottom: 4px;
+			background-color: white;
+			transition: .4s;
+			border-radius: 50%;
+		}
+		
+		input:checked + .slider {
+			background-color: #3498db;
+		}
+		
+		input:checked + .slider:before {
+			transform: translateX(22px);
+		}
+		
+		.switch-label {
+			font-size: 14px;
+			color: #2c3e50;
+		}
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
@@ -367,10 +423,18 @@
             Chọn chế độ và nhấn "Bắt đầu tìm kiếm" để kết nối với người lạ.
         </div>
         
-        <div class="action-buttons">
-            <button class="primary-btn wait-btn" id="start-btn">Bắt đầu tìm kiếm</button>
-            <button class="primary-btn end-btn hidden" id="end-btn">Kết thúc</button>
-        </div>
+		<div class="action-buttons">
+			<button class="primary-btn wait-btn" id="start-btn">Bắt đầu tìm kiếm</button>
+			<div class="switch-container">
+				<label class="switch">
+					<input type="checkbox" id="auto-reconnect-switch">
+					<span class="slider"></span>
+				</label>
+				<span class="switch-label">Tự động tìm</span>
+			</div>
+			<button class="primary-btn end-btn hidden" id="end-btn">Kết thúc</button>
+		</div>
+
         
         <div class="content-container">
             <div class="video-container" id="video-container">
@@ -446,6 +510,8 @@
         let isConnected = false;
         let isVideoEnabled = true;
         let isAudioEnabled = true;
+		let autoReconnect = false;
+
         
         // DOM Elements
         const startBtn = document.getElementById('start-btn');
@@ -495,6 +561,11 @@
                     });
                 });
                 
+				  // Thêm sự kiện cho công tắc
+				document.getElementById('auto-reconnect-switch').addEventListener('change', function(e) {
+					autoReconnect = e.target.checked;
+				});
+				
                 // Xử lý khi đóng trang
                 window.addEventListener('beforeunload', cleanup);
             } catch (error) {
@@ -874,6 +945,9 @@
 			}
 			
 			updateStatusUI('idle');
+			if (!autoReconnect) {
+				updateStatusUI('idle');
+			}
 		}
 
 
@@ -1082,9 +1156,16 @@
         
         // Kết thúc cuộc trò chuyện và tìm người mới
         async function endAndFindNew() {
-            await handleDisconnect();
-            startWaiting();
-        }
+			await handleDisconnect();
+			
+			// Chỉ tự động tìm kiếm nếu công tắc bật
+			if (autoReconnect) {
+				startWaiting();
+			} else {
+				updateStatusUI('idle');
+			}
+		}
+
         
         // Khởi tạo ứng dụng khi tải trang
         window.onload = init;
