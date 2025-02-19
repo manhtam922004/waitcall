@@ -485,278 +485,195 @@
 
     <script>
         // Khởi tạo Firebase
-		const firebaseConfig = {
-			authDomain: "waitcall-87f5e.firebaseapp.com",
-			databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
-			projectId: "waitcall-87f5e",
-			storageBucket: "waitcall-87f5e.firebasestorage.app",
-			messagingSenderId: "535766267900",
-			appId: "1:535766267900:web:572b04459493c157bd6479"
-		};
-		
-		firebase.initializeApp(firebaseConfig);
-		const database = firebase.database();
-		
-		// Biến toàn cục
-		let userId = null;
-		let localStream = null;
-		let peer = null;
-		let dataConnection = null;
-		let mediaConnection = null;
-		let waitingRef = null;
-		let roomRef = null;
-		let currentMode = 'video';
-		let isWaiting = false;
-		let isConnected = false;
-		let isVideoEnabled = true;
-		let isAudioEnabled = true;
+        const firebaseConfig = {
+            authDomain: "waitcall-87f5e.firebaseapp.com",
+            databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "waitcall-87f5e",
+            storageBucket: "waitcall-87f5e.firebasestorage.app",
+            messagingSenderId: "535766267900",
+            appId: "1:535766267900:web:572b04459493c157bd6479"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Biến toàn cục
+        let userId = null;
+        let localStream = null;
+        let peer = null;
+        let dataConnection = null;
+        let mediaConnection = null;
+        let waitingRef = null;
+        let roomRef = null;
+        let currentMode = 'video';
+        let isWaiting = false;
+        let isConnected = false;
+        let isVideoEnabled = true;
+        let isAudioEnabled = true;
 		let autoReconnect = false;
-		let isInitiator = false;
-		
-		// DOM Elements
-		const startBtn = document.getElementById('start-btn');
-		const endBtn = document.getElementById('end-btn');
-		const statusMessage = document.getElementById('status-message');
-		const videoContainer = document.getElementById('video-container');
-		const localVideo = document.getElementById('local-video');
-		const remoteVideo = document.getElementById('remote-video');
-		const chatMessages = document.getElementById('chat-messages');
-		const messageInput = document.getElementById('message-input');
-		const sendMessageBtn = document.getElementById('send-message');
-		const toggleVideoBtn = document.getElementById('toggle-video');
-		const toggleAudioBtn = document.getElementById('toggle-audio');
-		const modeBtns = document.querySelectorAll('.mode-btn');
-		const autoReconnectSwitch = document.getElementById('auto-reconnect-switch');
 
-		// Tạo ID ngẫu nhiên
-		function generateUserId() {
-			return Math.random().toString(36).substring(2, 15);
-		}
-		
-		// Khởi tạo
-		async function init() {
-			try {
-				userId = generateUserId();
-				console.log('User ID:', userId);
-				
-				initPeerJS();
-				
-				startBtn.addEventListener('click', startWaiting);
-				endBtn.addEventListener('click', endAndFindNew);
-				sendMessageBtn.addEventListener('click', sendMessage);
-				messageInput.addEventListener('keypress', (e) => {
-					if (e.key === 'Enter') sendMessage();
-				});
-				
-				toggleVideoBtn.addEventListener('click', toggleVideo);
-				toggleAudioBtn.addEventListener('click', toggleAudio);
-				
-				modeBtns.forEach(btn => {
-					btn.addEventListener('click', () => switchMode(btn.dataset.mode));
-				});
-
-				autoReconnectSwitch.addEventListener('change', function(e) {
+        
+        // DOM Elements
+        const startBtn = document.getElementById('start-btn');
+        const endBtn = document.getElementById('end-btn');
+        const statusMessage = document.getElementById('status-message');
+        const videoContainer = document.getElementById('video-container');
+        const localVideo = document.getElementById('local-video');
+        const remoteVideo = document.getElementById('remote-video');
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendMessageBtn = document.getElementById('send-message');
+        const toggleVideoBtn = document.getElementById('toggle-video');
+        const toggleAudioBtn = document.getElementById('toggle-audio');
+        const modeBtns = document.querySelectorAll('.mode-btn');
+        
+        // Tạo ID ngẫu nhiên
+        function generateUserId() {
+            return Math.random().toString(36).substring(2, 15);
+        }
+        
+        // Khởi tạo
+        async function init() {
+            try {
+                // Tạo ID người dùng
+                userId = generateUserId();
+                console.log('User ID:', userId);
+                
+                // Khởi tạo PeerJS
+                initPeerJS();
+                
+                // Thiết lập sự kiện
+                startBtn.addEventListener('click', startWaiting);
+                endBtn.addEventListener('click', endAndFindNew);
+                sendMessageBtn.addEventListener('click', sendMessage);
+                messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        sendMessage();
+                    }
+                });
+                
+                toggleVideoBtn.addEventListener('click', toggleVideo);
+                toggleAudioBtn.addEventListener('click', toggleAudio);
+                
+                modeBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        switchMode(btn.dataset.mode);
+                    });
+                });
+                
+				  // Thêm sự kiện cho công tắc
+				document.getElementById('auto-reconnect-switch').addEventListener('change', function(e) {
 					autoReconnect = e.target.checked;
-					sendAutoReconnectStatus();
 				});
 				
-				window.addEventListener('beforeunload', cleanup);
-			} catch (error) {
-				console.error('Lỗi khởi tạo:', error);
-				statusMessage.textContent = 'Có lỗi xảy ra khi khởi tạo ứng dụng.';
-			}
-		}
-		
-		// PeerJS
-		function initPeerJS() {
-			if (peer) peer.destroy();
-			peer = new Peer(userId);
-			
-			peer.on('open', (id) => console.log('PeerJS ID:', id));
-			peer.on('connection', (conn) => setupDataConnection(conn));
-			peer.on('call', (call) => answerCall(call));
-			peer.on('error', (err) => console.error('Lỗi PeerJS:', err));
-		}
-
-		// Gửi trạng thái autoReconnect
-		function sendAutoReconnectStatus() {
-			if (dataConnection?.open) {
-				dataConnection.send({
-					type: 'autoReconnect',
-					status: autoReconnect
-				});
-			}
-		}
-
-		// Xử lý chuyển chế độ
-		function switchMode(mode) {
-			if (currentMode === mode) return;
-			
-			const confirmSwitch = confirm("Chuyển chế độ và kết thúc phiên hiện tại?");
-			if (!confirmSwitch) return;
-			
-			handleDisconnect().then(() => {
-				currentMode = mode;
-				updateUIForMode(mode);
-				resetModeButtons(mode);
-			});
-		}
-
-		// Cập nhật UI theo chế độ
-		function updateUIForMode(mode) {
-			videoContainer.classList.toggle('hidden', mode !== 'video');
-			audioContainer.classList.toggle('hidden', mode !== 'audio');
-		}
-
-		// Cập nhật nút chế độ
-		function resetModeButtons(mode) {
-			modeBtns.forEach(btn => {
-				btn.classList.toggle('active', btn.dataset.mode === mode);
-			});
-		}
-
-		// Kết nối với partner
-		async function connectWithPartner(partnerId) {
-			isInitiator = true;
-			isConnected = true;
-			updateStatusUI('connected');
-			
-			initiateDataConnection(partnerId);
-			
-			if (currentMode !== 'chat') {
-				initiateMediaConnection(partnerId);
-				if (currentMode === 'audio') setupAudioAnalyzer();
-			}
-		}
-
-		// Xử lý ngắt kết nối
-		async function handleDisconnect() {
-			if (!isConnected && !isWaiting) return;
-			
-			// Gửi thông báo ngắt kết nối
-			if (dataConnection?.open) {
-				dataConnection.send({
-					type: 'disconnect',
-					autoReconnect: autoReconnect
-				});
-			}
-			
-			// Dọn dẹp kết nối
-			if (dataConnection) dataConnection.close();
-			if (mediaConnection) mediaConnection.close();
-			if (remoteVideo.srcObject) remoteVideo.srcObject = null;
-			if (roomRef) await roomRef.remove();
-			
-			isConnected = false;
-			isWaiting = false;
-			
-			// Xử lý tự động kết nối lại
-			if (autoReconnect && isInitiator) {
-				startWaiting();
-			} else {
-				updateStatusUI('idle');
-			}
-			
-			isInitiator = false; // Reset trạng thái
-		}
-
-		// Thiết lập kết nối dữ liệu
-		function setupDataConnection(conn) {
-			dataConnection = conn;
-			
-			conn.on('data', (data) => {
-				switch(data.type) {
-					case 'chat':
-						displayMessage(data.message, false);
-						break;
-					case 'autoReconnect':
-						autoReconnect = data.status;
-						autoReconnectSwitch.checked = data.status;
-						break;
-					case 'disconnect':
-						autoReconnect = data.autoReconnect;
-						handleDisconnect().then(() => {
-							if (data.autoReconnect) startWaiting();
-						});
-						break;
-				}
-			});
-			
-			conn.on('close', () => handleDisconnect());
-			conn.on('error', (err) => console.error('Lỗi kết nối:', err));
-		}
-
-		// Kết thúc và tìm mới
-		async function endAndFindNew() {
-			isInitiator = true;
-			await handleDisconnect();
-		}
-
-		// Khởi tạo media stream
-		async function initMediaStream(mode) {
-			try {
-				if (localStream) {
-					localStream.getTracks().forEach(track => track.stop());
-				}
-				
-				const constraints = {
-					audio: true,
-					video: mode === 'video'
-				};
-				
-				localStream = await navigator.mediaDevices.getUserMedia(constraints);
-				localVideo.srcObject = localStream;
-				
-				return localStream;
-			} catch (error) {
-				console.error('Không thể truy cập thiết bị media:', error);
-				alert('Không thể truy cập micro hoặc camera. Vui lòng kiểm tra quyền truy cập.');
-				return null;
-			}
-		}
-		
-		// Bắt đầu chờ
-		async function startWaiting() {
-			if (isWaiting || isConnected) return;
-			
-			isWaiting = true;
-			updateStatusUI('waiting');
-			
-			if (currentMode !== 'chat') {
-				const stream = await initMediaStream(currentMode);
-				if (!stream) {
-					isWaiting = false;
-					updateStatusUI('idle');
-					return;
-				}
-			}
-			
-			waitingRef = database.ref('waiting');
-			
-			try {
-				const snapshot = await waitingRef.orderByChild('mode').equalTo(currentMode).once('value');
-				const waitingUsers = snapshot.val() || {};
-				const waitingUserIds = Object.keys(waitingUsers);
-				
-				if (waitingUserIds.length > 0) {
-					const partnerId = waitingUserIds[0];
-					
-					if (partnerId === userId) {
-						console.log('Không thể kết nối với chính mình, tiếp tục chờ...');
-						await addToWaitingRoom();
-					} else {
-						await waitingRef.child(partnerId).remove();
-						await createRoomAndConnect(partnerId);
-					}
-				} else {
-					await addToWaitingRoom();
-				}
-			} catch (error) {
-				console.error('Lỗi khi tìm kiếm đối tác:', error);
-				isWaiting = false;
-				updateStatusUI('idle');
-			}
-		}
+                // Xử lý khi đóng trang
+                window.addEventListener('beforeunload', cleanup);
+            } catch (error) {
+                console.error('Lỗi khởi tạo:', error);
+                statusMessage.textContent = 'Có lỗi xảy ra khi khởi tạo ứng dụng.';
+            }
+        }
+        
+        // Khởi tạo PeerJS
+        function initPeerJS() {
+            if (peer) {
+                peer.destroy();
+            }
+            
+            peer = new Peer(userId);
+            
+            peer.on('open', (id) => {
+                console.log('PeerJS ID đã mở:', id);
+            });
+            
+            peer.on('connection', (conn) => {
+                console.log('Có kết nối dữ liệu đến từ:', conn.peer);
+                setupDataConnection(conn);
+            });
+            
+            peer.on('call', (call) => {
+                console.log('Có cuộc gọi đến từ:', call.peer);
+                answerCall(call);
+            });
+            
+            peer.on('error', (err) => {
+                console.error('Lỗi PeerJS:', err);
+            });
+        }
+        
+        // Khởi tạo media stream
+        async function initMediaStream(mode) {
+            try {
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                }
+                
+                const constraints = {
+                    audio: true,
+                    video: mode === 'video'
+                };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localVideo.srcObject = localStream;
+                
+                return localStream;
+            } catch (error) {
+                console.error('Không thể truy cập thiết bị media:', error);
+                alert('Không thể truy cập micro hoặc camera. Vui lòng kiểm tra quyền truy cập.');
+                return null;
+            }
+        }
+        
+        // Bắt đầu chờ
+        async function startWaiting() {
+            if (isWaiting || isConnected) return;
+            
+            isWaiting = true;
+            updateStatusUI('waiting');
+            
+            // Khởi tạo media dựa trên mode
+            if (currentMode !== 'chat') {
+                const stream = await initMediaStream(currentMode);
+                if (!stream) {
+                    isWaiting = false;
+                    updateStatusUI('idle');
+                    return;
+                }
+            }
+            
+            // Tham gia phòng chờ
+            waitingRef = database.ref('waiting');
+            
+            try {
+                // Tìm người đang chờ với cùng mode
+                const snapshot = await waitingRef.orderByChild('mode').equalTo(currentMode).once('value');
+                const waitingUsers = snapshot.val() || {};
+                const waitingUserIds = Object.keys(waitingUsers);
+                
+                if (waitingUserIds.length > 0) {
+                    // Lấy người dùng đầu tiên từ phòng chờ
+                    const partnerId = waitingUserIds[0];
+                    
+                    // Không tự kết nối với chính mình
+                    if (partnerId === userId) {
+                        console.log('Không thể kết nối với chính mình, tiếp tục chờ...');
+                        await addToWaitingRoom();
+                    } else {
+                        // Xóa người đó khỏi phòng chờ
+                        await waitingRef.child(partnerId).remove();
+                        // Tạo phòng và kết nối
+                        await createRoomAndConnect(partnerId);
+                    }
+                } else {
+                    // Không có ai đang chờ, thêm vào danh sách chờ
+                    await addToWaitingRoom();
+                }
+            } catch (error) {
+                console.error('Lỗi khi tìm kiếm đối tác:', error);
+                isWaiting = false;
+                updateStatusUI('idle');
+            }
+        }
         
         // Thêm vào phòng chờ
         async function addToWaitingRoom() {
