@@ -1042,29 +1042,43 @@
         
         // Chuyển đổi chế độ
         function switchMode(mode) {
-			if (isConnected || isWaiting) {
-				alert('Vui lòng kết thúc cuộc trò chuyện hiện tại trước khi đổi chế độ.');
-				return;
-			}
-			
-			currentMode = mode;
-			
-			// Cập nhật giao diện theo chế độ
-			videoContainer.classList.add('hidden');
-			audioContainer.classList.add('hidden');
-			
-			if (mode === 'video') {
-				videoContainer.classList.remove('hidden');
-			} else if (mode === 'audio') {
-				audioContainer.classList.remove('hidden');
-			}
-			
-			// Cập nhật nút chế độ
-			modeBtns.forEach(btn => {
-				btn.classList.toggle('active', btn.dataset.mode === mode);
-			});
-		}
+            if (currentMode === mode) return;
 
+            if (isConnected || isWaiting) {
+                const confirmSwitch = confirm("Chuyển chế độ và kết thúc phiên hiện tại?");
+                if (!confirmSwitch) return;
+                
+                // Xử lý ngắt kết nối và chuyển chế độ
+                handleDisconnect().then(() => {
+                    currentMode = mode;
+                    updateUIForMode(mode);
+                    resetModeButtons(mode);
+                });
+            } else {
+                currentMode = mode;
+                updateUIForMode(mode);
+                resetModeButtons(mode);
+            }
+        }
+
+		 // Hàm hỗ trợ cập nhật UI theo chế độ
+        function updateUIForMode(mode) {
+            videoContainer.classList.add('hidden');
+            audioContainer.classList.add('hidden');
+            
+            if (mode === 'video') {
+                videoContainer.classList.remove('hidden');
+            } else if (mode === 'audio') {
+                audioContainer.classList.remove('hidden');
+            }
+        }
+
+        // Hàm hỗ trợ cập nhật nút chế độ
+        function resetModeButtons(mode) {
+            modeBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+        }
         
         // Kết thúc cuộc trò chuyện và tìm người mới
         async function endAndFindNew() {
