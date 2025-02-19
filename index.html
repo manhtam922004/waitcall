@@ -597,7 +597,6 @@
 			});
 
             
-            peer = new Peer(userId);
             
             peer.on('open', (id) => {
                 console.log('PeerJS ID đã mở:', id);
@@ -905,8 +904,9 @@
 				console.log('ICE connection state:', state);
 				if (state === 'disconnected' || state === 'failed') {
 					handleDisconnect();
+				}
+			});
 
-				
 				// Nếu đang ở chế độ audio, thiết lập audio analyzer
 				if (currentMode === 'audio' && stream.getAudioTracks().length > 0) {
 					setTimeout(() => {
