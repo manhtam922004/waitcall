@@ -432,15 +432,6 @@
 				</label>
 				<span class="switch-label">Tự động tìm</span>
 			</div>
-			
-			<div class="switch-container">
-				<label class="switch">
-					<input type="checkbox" id="same-country-switch">
-					<span class="slider"></span>
-				</label>
-				<span class="switch-label">Chỉ kết nối cùng quốc gia</span>
-			</div>
-
 			<button class="primary-btn end-btn hidden" id="end-btn">Kết thúc</button>
 		</div>
 
@@ -449,7 +440,7 @@
             <div class="video-container" id="video-container">
                 <div class="video-wrapper">
                     <video class="video-element" id="remote-video" autoplay playsinline></video>
-                    <div class="username">Người lạ <span id="remote-country" class="country-badge"></span></div>
+                    <div class="username">Người lạ</div>
                     <div class="local-video-wrapper">
                         <video class="video-element" id="local-video" autoplay playsinline muted></video>
                     </div>
@@ -464,7 +455,7 @@
 				<div class="audio-visualization">
 					<div class="audio-level"></div>
 					<i class="fas fa-user avatar"></i>
-					<div class="username">Người lạ <span id="audio-remote-country" class="country-badge"></span></div>
+					<div class="username">Người lạ</div>
 				</div>
 				
 				<div class="audio-controls">
@@ -520,9 +511,6 @@
         let isVideoEnabled = true;
         let isAudioEnabled = true;
 		let autoReconnect = false;
-		let userCountry = null;
-		let onlySameCountry = false;
-
 
         
         // DOM Elements
@@ -551,24 +539,18 @@
                 userId = generateUserId();
                 console.log('User ID:', userId);
                 
-				// Lấy thông tin quốc gia
-				await getUserCountry();
-				
                 // Khởi tạo PeerJS
                 initPeerJS();
                 
                 // Thiết lập sự kiện
-				startBtn.addEventListener('click', startWaiting);
-				endBtn.addEventListener('click', endAndFindNew);
-				sendMessageBtn.addEventListener('click', sendMessage);
-				messageInput.addEventListener('keypress', (e) => {
-					if (e.key === 'Enter') {
-						sendMessage();
-					}
-				});
-				
-
-
+                startBtn.addEventListener('click', startWaiting);
+                endBtn.addEventListener('click', endAndFindNew);
+                sendMessageBtn.addEventListener('click', sendMessage);
+                messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        sendMessage();
+                    }
+                });
                 
                 toggleVideoBtn.addEventListener('click', toggleVideo);
                 toggleAudioBtn.addEventListener('click', toggleAudio);
@@ -578,11 +560,7 @@
                         switchMode(btn.dataset.mode);
                     });
                 });
-                // Thêm sự kiện cho công tắc quốc gia
-				document.getElementById('same-country-switch').addEventListener('change', function(e) {
-					onlySameCountry = e.target.checked;
-				});
-				
+                
 				  // Thêm sự kiện cho công tắc
 				document.getElementById('auto-reconnect-switch').addEventListener('change', function(e) {
 					autoReconnect = e.target.checked;
@@ -601,6 +579,23 @@
             if (peer) {
                 peer.destroy();
             }
+			
+			    // Thêm cấu hình ICE servers
+			const iceServers = [
+				{ urls: 'stun:stun.l.google.com:19302' },
+				{ urls: 'stun:stun1.l.google.com:19302' },
+				{ urls: 'stun:stun2.l.google.com:19302' },
+				// Thêm TURN server nếu có (ví dụ: coturn)
+			];
+
+			peer = new Peer(userId, {
+				config: { 
+					'iceServers': iceServers 
+				},
+				// Bật tính năng vượt NAT mạnh mẽ hơn
+				sdpSemantics: 'unified-plan'
+			});
+
             
             peer = new Peer(userId);
             
@@ -627,16 +622,25 @@
         async function initMediaStream(mode) {
             try {
                 if (localStream) {
-                    localStream.getTracks().forEach(track => track.stop());
-                }
+					localStream.getTracks().forEach(track => track.stop());
+				}
                 
-                const constraints = {
-                    audio: true,
-                    video: mode === 'video'
-                };
+                // Sử dụng constraints linh hoạt hơn
+				const constraints = {
+					audio: {
+						echoCancellation: true,
+						noiseSuppression: true
+					},
+					video: mode === 'video' ? { 
+						width: { ideal: 640 }, 
+						height: { ideal: 480 },
+						facingMode: 'user' 
+					} : false
+				};
+
                 
                 localStream = await navigator.mediaDevices.getUserMedia(constraints);
-                localVideo.srcObject = localStream;
+				localVideo.srcObject = localStream;
                 
                 return localStream;
             } catch (error) {
@@ -648,87 +652,74 @@
         
         // Bắt đầu chờ
         async function startWaiting() {
-			if (isWaiting || isConnected) return;
-			
-			isWaiting = true;
-			updateStatusUI('waiting');
-			
-			// Khởi tạo media dựa trên mode
-			if (currentMode !== 'chat') {
-				const stream = await initMediaStream(currentMode);
-				if (!stream) {
-					isWaiting = false;
-					updateStatusUI('idle');
-					return;
-				}
-			}
-			
-			// Tham gia phòng chờ
-			waitingRef = database.ref('waiting');
-			
-			try {
-				// Query cơ bản cho mode
-				let query = waitingRef.orderByChild('mode').equalTo(currentMode);
-				
-				// Lấy danh sách người chờ
-				const snapshot = await query.once('value');
-				const waitingUsers = snapshot.val() || {};
-				
-				// Lọc người chờ dựa trên tùy chọn quốc gia
-				let filteredUsers = Object.entries(waitingUsers).filter(([id, data]) => {
-					// Bỏ qua chính mình
-					if (id === userId) return false;
-					
-					// Nếu chỉ kết nối cùng quốc gia
-					if (onlySameCountry && data.country !== userCountry) {
-						return false;
-					}
-					
-					return true;
-				});
-				
-				if (filteredUsers.length > 0) {
-					// Lấy người dùng ngẫu nhiên từ danh sách đã lọc
-					const randomIndex = Math.floor(Math.random() * filteredUsers.length);
-					const [partnerId, partnerData] = filteredUsers[randomIndex];
-					
-					// Xóa người đó khỏi phòng chờ
-					await waitingRef.child(partnerId).remove();
-					
-					// Tạo phòng và kết nối
-					await createRoomAndConnect(partnerId, partnerData.country);
-				} else {
-					// Không có ai phù hợp, thêm vào danh sách chờ
-					await addToWaitingRoom();
-				}
-			} catch (error) {
-				console.error('Lỗi khi tìm kiếm đối tác:', error);
-				isWaiting = false;
-				updateStatusUI('idle');
-			}
-		}
+            if (isWaiting || isConnected) return;
+            
+            isWaiting = true;
+            updateStatusUI('waiting');
+            
+            // Khởi tạo media dựa trên mode
+            if (currentMode !== 'chat') {
+                const stream = await initMediaStream(currentMode);
+                if (!stream) {
+                    isWaiting = false;
+                    updateStatusUI('idle');
+                    return;
+                }
+            }
+            
+            // Tham gia phòng chờ
+            waitingRef = database.ref('waiting');
+            
+            try {
+                // Tìm người đang chờ với cùng mode
+                const snapshot = await waitingRef.orderByChild('mode').equalTo(currentMode).once('value');
+                const waitingUsers = snapshot.val() || {};
+                const waitingUserIds = Object.keys(waitingUsers);
+                
+                if (waitingUserIds.length > 0) {
+                    // Lấy người dùng đầu tiên từ phòng chờ
+                    const partnerId = waitingUserIds[0];
+                    
+                    // Không tự kết nối với chính mình
+                    if (partnerId === userId) {
+                        console.log('Không thể kết nối với chính mình, tiếp tục chờ...');
+                        await addToWaitingRoom();
+                    } else {
+                        // Xóa người đó khỏi phòng chờ
+                        await waitingRef.child(partnerId).remove();
+                        // Tạo phòng và kết nối
+                        await createRoomAndConnect(partnerId);
+                    }
+                } else {
+                    // Không có ai đang chờ, thêm vào danh sách chờ
+                    await addToWaitingRoom();
+                }
+            } catch (error) {
+                console.error('Lỗi khi tìm kiếm đối tác:', error);
+                isWaiting = false;
+                updateStatusUI('idle');
+            }
+        }
         
         // Thêm vào phòng chờ
         async function addToWaitingRoom() {
-			try {
-				// Thêm vào phòng chờ với mode và quốc gia
-				await waitingRef.child(userId).set({
-					timestamp: firebase.database.ServerValue.TIMESTAMP,
-					mode: currentMode,
-					country: userCountry
-				});
-				
-				console.log('Đã thêm vào phòng chờ với mode:', currentMode);
-				
-				// Lắng nghe khi có phòng mới được tạo
-				listenForRoomCreation();
-			} catch (error) {
-				console.error('Lỗi khi thêm vào phòng chờ:', error);
-				isWaiting = false;
-				updateStatusUI('idle');
-			}
-		}
-
+            try {
+                // Thêm vào phòng chờ với mode
+                await waitingRef.child(userId).set({
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    mode: currentMode
+                });
+                
+                console.log('Đã thêm vào phòng chờ với mode:', currentMode);
+                
+                // Lắng nghe khi có phòng mới được tạo
+                listenForRoomCreation();
+            } catch (error) {
+                console.error('Lỗi khi thêm vào phòng chờ:', error);
+                isWaiting = false;
+                updateStatusUI('idle');
+            }
+        }
         
         // Lắng nghe khi có phòng mới
         function listenForRoomCreation() {
@@ -765,113 +756,87 @@
         }
         
         // Tạo phòng và kết nối
-        async function createRoomAndConnect(partnerId, partnerCountry) {
-			try {
-				// Tạo phòng mới
-				roomRef = database.ref('rooms').push();
-				
-				await roomRef.set({
-					createdAt: firebase.database.ServerValue.TIMESTAMP,
-					mode: currentMode,
-					participants: {
-						[userId]: true,
-						[partnerId]: true
-					},
-					countries: {
-						[userId]: userCountry,
-						[partnerId]: partnerData.country || 'Unknown' // Sửa từ partnerCountry
-					}
-				});
-
-				
-				console.log('Đã tạo phòng mới:', roomRef.key);
-				
-				// Kết nối với đối tác
-				await connectWithPartner(partnerId, partnerCountry);
-			} catch (error) {
-				console.error('Lỗi khi tạo phòng:', error);
-				isWaiting = false;
-				updateStatusUI('idle');
-			}
-		}
-
+        async function createRoomAndConnect(partnerId) {
+            try {
+                // Tạo phòng mới
+                roomRef = database.ref('rooms').push();
+                
+                await roomRef.set({
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    mode: currentMode,
+                    participants: {
+                        [userId]: true,
+                        [partnerId]: true
+                    }
+                });
+                
+                console.log('Đã tạo phòng mới:', roomRef.key);
+                
+                // Kết nối với đối tác
+                await connectWithPartner(partnerId);
+            } catch (error) {
+                console.error('Lỗi khi tạo phòng:', error);
+                isWaiting = false;
+                updateStatusUI('idle');
+            }
+        }
         
         // Tham gia phòng và kết nối
         async function joinRoomAndConnect(partnerId) {
-			try {
-				// Lấy thông tin quốc gia của đối tác từ phòng
-				const roomSnapshot = await roomRef.once('value');
-				const roomData = roomSnapshot.val();
-				const partnerCountry = roomData?.countries?.[partnerId] || 'Unknown';
-				
-				// Kết nối với đối tác
-				await connectWithPartner(partnerId, partnerCountry);
-			} catch (error) {
-				console.error('Lỗi khi tham gia phòng:', error);
-				isWaiting = false;
-				updateStatusUI('idle');
-			}
-		}
-
+            try {
+                // Kết nối với đối tác
+                await connectWithPartner(partnerId);
+            } catch (error) {
+                console.error('Lỗi khi tham gia phòng:', error);
+                isWaiting = false;
+                updateStatusUI('idle');
+            }
+        }
         
         // Kết nối với đối tác
-        async function connectWithPartner(partnerId, partnerCountry) {
+        async function connectWithPartner(partnerId) {
 			try {
 				isWaiting = false;
 				isConnected = true;
 				updateStatusUI('connected');
 				
-				// Debug: Kiểm tra giá trị partnerCountry nhận được
-				console.log('Thông tin quốc gia đối tác:', {
-					partnerId,
-					partnerCountry,
-					fromArgument: partnerCountry,
-					fromRoom: roomRef?.key ? (await roomRef.once('value')).val()?.countries?.[partnerId] : 'N/A'
-				});
-
-				// Xử lý trường hợp không có thông tin quốc gia
-				const finalCountry = partnerCountry || 'Không xác định';
 				
-				// Hiển thị quốc gia của đối tác
-				updatePartnerCountryUI(finalCountry);
-				
-				// Thiết lập kết nối dữ liệu
+				// Thiết lập kết nối dữ liệu - khởi tạo trước
 				initiateDataConnection(partnerId);
 				
-				// Đợi 1s để đảm bảo kết nối dữ liệu ổn định
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				// Đợi một chút để đảm bảo kết nối dữ liệu được thiết lập
+				await new Promise((resolve, reject) => {
+					setTimeout(() => {
+						if (!isConnected) reject('Connection timeout');
+						else resolve();
+					}, 15000); // 15s timeout
+				});
+
 				
-				// Xử lý kết nối media theo chế độ
+				// Nếu là chế độ video hoặc audio, bắt đầu cuộc gọi
 				if (currentMode !== 'chat') {
 					initiateMediaConnection(partnerId);
 					
+					// Nếu là chế độ audio, thiết lập audio analyzer sau khi kết nối
 					if (currentMode === 'audio') {
+						// Đợi media connection được thiết lập
 						setTimeout(() => {
-							try {
-								setupAudioAnalyzer();
-							} catch (error) {
-								console.error('Lỗi khởi tạo audio analyzer:', error);
-							}
+							setupAudioAnalyzer();
 						}, 2000);
 					}
 				}
 				
-				// Gửi thông tin quốc gia qua chat (tuỳ chọn)
-				if (dataConnection?.open) {
-					dataConnection.send({
-						type: 'system',
-						message: `Quốc gia của tôi: ${userCountry}`
-					});
+				// Thiết lập các event listener cho audio controls
+				if (currentMode === 'audio') {
+					audioToggleAudioBtn.addEventListener('click', toggleAudio);
+					audioEndCallBtn.addEventListener('click', endAndFindNew);
 				}
 			} catch (error) {
-				console.error('Lỗi kết nối:', {
-					error,
-					partnerId,
-					partnerCountry
-				});
+				console.error('Lỗi khi kết nối với đối tác:', error);
 				handleDisconnect();
 			}
 		}
+
 
         
         // Khởi tạo kết nối dữ liệu
@@ -918,21 +883,6 @@
             setupMediaConnection(mediaConnection);
         }
         
-		// Thêm hàm hiển thị quốc gia của đối tác
-		function updatePartnerCountryUI(countryName) {
-			const remoteCountryElement = document.getElementById('remote-country');
-			const audioRemoteCountryElement = document.getElementById('audio-remote-country');
-			
-			if (remoteCountryElement) {
-				remoteCountryElement.textContent = countryName || 'Unknown';
-			}
-			
-			if (audioRemoteCountryElement) {
-				audioRemoteCountryElement.textContent = countryName || 'Unknown';
-			}
-		}
-
-		
         // Trả lời cuộc gọi
         async function answerCall(call) {
             try {
@@ -951,9 +901,11 @@
         
         // Thiết lập kết nối media
         function setupMediaConnection(call) {
-			call.on('stream', (stream) => {
-				console.log('Đã nhận stream từ xa');
-				remoteVideo.srcObject = stream;
+			call.on('iceStateChanged', (state) => {
+				console.log('ICE connection state:', state);
+				if (state === 'disconnected' || state === 'failed') {
+					handleDisconnect();
+
 				
 				// Nếu đang ở chế độ audio, thiết lập audio analyzer
 				if (currentMode === 'audio' && stream.getAudioTracks().length > 0) {
@@ -984,9 +936,6 @@
 			
 			isConnected = false;
 			isWaiting = false;
-			
-			 // Reset hiển thị quốc gia
-			updatePartnerCountryUI('');
 			
 			// Hiển thị thông báo ngắt kết nối
 			displayMessage("Kết nối đã bị ngắt.", false);
@@ -1035,20 +984,6 @@
 				updateStatusUI('idle');
 			}
 		}
-		
-		// Thêm hàm lấy thông tin quốc gia
-		async function getUserCountry() {
-			try {
-				const response = await fetch('https://ipinfo.io/json?token=35938ef454f7bc'); // Đăng ký token miễn phí
-				const data = await response.json();
-				userCountry = data.country || 'Unknown'; // Sửa thành data.country
-				console.log('Quốc gia người dùng:', userCountry);
-			} catch (error) {
-				console.error('Không thể lấy thông tin quốc gia:', error);
-				userCountry = 'Unknown';
-			}
-		}
-
 
 
         // Dọn dẹp tài nguyên
