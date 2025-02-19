@@ -564,23 +564,27 @@
         
         // Kết nối với đối tác
         async function connectWithPartner(partnerId) {
-            try {
-                isWaiting = false;
-                isConnected = true;
-                updateStatusUI('connected');
-                
-                // Thiết lập kết nối dữ liệu
-                initiateDataConnection(partnerId);
-                
-                // Nếu là chế độ video hoặc audio, bắt đầu cuộc gọi
-                if (currentMode !== 'chat') {
-                    initiateMediaConnection(partnerId);
-                }
-            } catch (error) {
-                console.error('Lỗi khi kết nối với đối tác:', error);
-                handleDisconnect();
-            }
-        }
+			try {
+				isWaiting = false;
+				isConnected = true;
+				updateStatusUI('connected');
+				
+				// Thiết lập kết nối dữ liệu - khởi tạo trước
+				initiateDataConnection(partnerId);
+				
+				// Đợi một chút để đảm bảo kết nối dữ liệu được thiết lập
+				await new Promise(resolve => setTimeout(resolve, 1000));
+				
+				// Nếu là chế độ video hoặc audio, bắt đầu cuộc gọi
+				if (currentMode !== 'chat') {
+					initiateMediaConnection(partnerId);
+				}
+			} catch (error) {
+				console.error('Lỗi khi kết nối với đối tác:', error);
+				handleDisconnect();
+			}
+		}
+
         
         // Khởi tạo kết nối dữ liệu
         function initiateDataConnection(partnerId) {
@@ -590,28 +594,30 @@
         
         // Thiết lập kết nối dữ liệu
         function setupDataConnection(conn) {
-            dataConnection = conn;
-            
-            dataConnection.on('open', () => {
-                console.log('Kết nối dữ liệu đã mở');
-                
-                dataConnection.on('data', (data) => {
-                    if (data.type === 'chat') {
-                        displayMessage(data.message, false);
-                    }
-                });
-                
-                dataConnection.on('close', () => {
-                    console.log('Kết nối dữ liệu đã đóng');
-                    handleDisconnect();
-                });
-                
-                dataConnection.on('error', (err) => {
-                    console.error('Lỗi kết nối dữ liệu:', err);
-                    handleDisconnect();
-                });
-            });
-        }
+			dataConnection = conn;
+			
+			conn.on('open', () => {
+				console.log('Kết nối dữ liệu đã mở với ID:', conn.peer);
+				
+				conn.on('data', (data) => {
+					console.log('Nhận dữ liệu:', data);
+					if (data.type === 'chat') {
+						displayMessage(data.message, false);
+					}
+				});
+				
+				conn.on('close', () => {
+					console.log('Kết nối dữ liệu đã đóng');
+					handleDisconnect();
+				});
+				
+				conn.on('error', (err) => {
+					console.error('Lỗi kết nối dữ liệu:', err);
+					handleDisconnect();
+				});
+			});
+		}
+
         
         // Khởi tạo kết nối media
         function initiateMediaConnection(partnerId) {
@@ -661,34 +667,54 @@
         
         // Xử lý ngắt kết nối
         async function handleDisconnect() {
-            if (!isConnected) return;
-            
-            isConnected = false;
-            
-            // Xóa tin nhắn
-            chatMessages.innerHTML = '';
-            remoteVideo.srcObject = null;
-            
-            // Đóng kết nối
-            if (dataConnection) {
-                dataConnection.close();
-                dataConnection = null;
-            }
-            
-            if (mediaConnection) {
-                mediaConnection.close();
-                mediaConnection = null;
-            }
-            
-            // Xóa phòng từ database
-            if (roomRef) {
-                await roomRef.remove();
-                roomRef = null;
-            }
-            
-            updateStatusUI('idle');
-        }
-        
+			if (!isConnected && !isWaiting) return;
+			
+			console.log('Xử lý ngắt kết nối');
+			
+			isConnected = false;
+			isWaiting = false;
+			
+			// Hiển thị thông báo ngắt kết nối
+			displayMessage("Kết nối đã bị ngắt.", false);
+			
+			// Xóa kết nối
+			if (dataConnection) {
+				try {
+					dataConnection.close();
+				} catch (e) {
+					console.error('Lỗi khi đóng kết nối dữ liệu:', e);
+				}
+				dataConnection = null;
+			}
+			
+			if (mediaConnection) {
+				try {
+					mediaConnection.close();
+				} catch (e) {
+					console.error('Lỗi khi đóng kết nối media:', e);
+				}
+				mediaConnection = null;
+			}
+			
+			// Xóa stream từ xa
+			if (remoteVideo.srcObject) {
+				remoteVideo.srcObject = null;
+			}
+			
+			// Xóa phòng từ database nếu có
+			if (roomRef) {
+				try {
+					await roomRef.remove();
+				} catch (e) {
+					console.error('Lỗi khi xóa phòng:', e);
+				}
+				roomRef = null;
+			}
+			
+			updateStatusUI('idle');
+		}
+
+
         // Dọn dẹp tài nguyên
         async function cleanup() {
             // Xóa người dùng khỏi phòng chờ
@@ -726,51 +752,83 @@
         
         // Cập nhật UI theo trạng thái
         function updateStatusUI(status) {
-            // Reset classes
-            statusMessage.classList.remove('waiting', 'connected');
-            
-            if (status === 'waiting') {
-                startBtn.classList.add('hidden');
-                endBtn.classList.remove('hidden');
-                statusMessage.textContent = 'Đang tìm kiếm người trò chuyện...';
-                statusMessage.classList.add('waiting');
-            } else if (status === 'connected') {
-                startBtn.classList.add('hidden');
-                endBtn.classList.remove('hidden');
-                statusMessage.textContent = 'Đã kết nối với người lạ. Bạn có thể trò chuyện ngay bây giờ.';
-                statusMessage.classList.add('connected');
-            } else { // idle
-                startBtn.classList.remove('hidden');
-                endBtn.classList.add('hidden');
-                statusMessage.textContent = 'Chọn chế độ và nhấn "Bắt đầu tìm kiếm" để kết nối với người lạ.';
-            }
-        }
+			// Reset classes
+			statusMessage.classList.remove('waiting', 'connected');
+			
+			if (status === 'waiting') {
+				startBtn.classList.add('hidden');
+				endBtn.classList.remove('hidden');
+				statusMessage.textContent = 'Đang tìm kiếm người trò chuyện...';
+				statusMessage.classList.add('waiting');
+			} else if (status === 'connected') {
+				startBtn.classList.add('hidden');
+				endBtn.classList.remove('hidden');
+				statusMessage.textContent = 'Đã kết nối với người lạ. Bạn có thể trò chuyện ngay bây giờ.';
+				statusMessage.classList.add('connected');
+				
+				// Focus vào ô nhập tin nhắn
+				messageInput.focus();
+			} else { // idle
+				startBtn.classList.remove('hidden');
+				endBtn.classList.add('hidden');
+				statusMessage.textContent = 'Chọn chế độ và nhấn "Bắt đầu tìm kiếm" để kết nối với người lạ.';
+			}
+		}
+
         
         // Gửi tin nhắn
         function sendMessage() {
-            const text = messageInput.value.trim();
-            if (!text || !isConnected || !dataConnection) return;
-            
-            displayMessage(text, true);
-            
-            dataConnection.send({
-                type: 'chat',
-                message: text
-            });
-            
-            messageInput.value = '';
-        }
+			const text = messageInput.value.trim();
+			if (!text) return;
+			
+			if (!isConnected) {
+				displayMessage("Bạn chưa được kết nối với ai. Không thể gửi tin nhắn.", false);
+				return;
+			}
+			
+			if (!dataConnection || dataConnection.open === false) {
+				console.error('Không có kết nối dữ liệu hoặc kết nối bị đóng');
+				displayMessage("Lỗi kết nối. Không thể gửi tin nhắn.", false);
+				return;
+			}
+			
+			try {
+				// Hiển thị tin nhắn của mình trước
+				displayMessage(text, true);
+				
+				// Gửi tin nhắn qua kết nối dữ liệu
+				dataConnection.send({
+					type: 'chat',
+					message: text
+				});
+				
+				console.log('Đã gửi tin nhắn:', text);
+				messageInput.value = '';
+			} catch (error) {
+				console.error('Lỗi khi gửi tin nhắn:', error);
+				displayMessage("Không thể gửi tin nhắn. Vui lòng thử lại.", false);
+			}
+		}
+
         
         // Hiển thị tin nhắn
         function displayMessage(text, isSent) {
-            const messageElem = document.createElement('div');
-            messageElem.classList.add('message');
-            messageElem.classList.add(isSent ? 'sent' : 'received');
-            messageElem.textContent = text;
-            
-            chatMessages.appendChild(messageElem);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
+			try {
+				const messageElem = document.createElement('div');
+				messageElem.classList.add('message');
+				messageElem.classList.add(isSent ? 'sent' : 'received');
+				
+				// Tăng cường bảo mật bằng cách sanitize nội dung
+				const textNode = document.createTextNode(text);
+				messageElem.appendChild(textNode);
+				
+				chatMessages.appendChild(messageElem);
+				chatMessages.scrollTop = chatMessages.scrollHeight;
+			} catch (error) {
+				console.error('Lỗi khi hiển thị tin nhắn:', error);
+			}
+		}
+
         
         // Bật/tắt video
         function toggleVideo() {
