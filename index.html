@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Cuộc gọi Video - Ghép cặp tự động</title>
+  <title>Cuộc gọi Video - Ghép cặp tự động (Debug)</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -31,17 +31,16 @@
   </style>
 </head>
 <body>
-  <h1>Cuộc gọi Video - Ghép cặp tự động</h1>
+  <h1>Cuộc gọi Video - Ghép cặp tự động (Debug)</h1>
   <div id="videos">
     <video id="localVideo" autoplay playsinline muted></video>
     <video id="remoteVideo" autoplay playsinline></video>
   </div>
   <button id="hangupBtn">Kết thúc cuộc gọi</button>
 
-  <!-- Thêm thư viện Firebase (phiên bản 8) -->
+  <!-- Firebase SDK (phiên bản 8) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
   <script>
     // Cấu hình Firebase của bạn
     var firebaseConfig = {
@@ -57,23 +56,19 @@
     const database = firebase.database();
 
     // Cấu hình ICE cho WebRTC
-    const configuration = { 
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
-    };
+    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     // Các biến toàn cục
     let localStream, remoteStream, peerConnection;
-    let roomId = null, role = null; // role: "caller" hoặc "callee"
-    // Tạo id duy nhất cho người dùng (dùng key của Firebase)
-    const myId = firebase.database().ref().push().key;
+    let roomId = null, role = null; // "caller" hoặc "callee"
+    const myId = firebase.database().ref().push().key;  // ID duy nhất của người dùng
 
-    // Tham chiếu đến các element
     const localVideo = document.getElementById("localVideo");
     const remoteVideo = document.getElementById("remoteVideo");
     const hangupBtn = document.getElementById("hangupBtn");
     hangupBtn.onclick = hangup;
 
-    // Lấy media của local (video & audio)
+    // Lấy stream của người dùng
     async function startLocalStream() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -83,25 +78,19 @@
       }
     }
 
-    // Tạo RTCPeerConnection và thiết lập các sự kiện
+    // Tạo kết nối RTCPeerConnection và thiết lập các sự kiện
     function createPeerConnection() {
       peerConnection = new RTCPeerConnection(configuration);
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-      });
+      localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-      // Nhận track từ remote stream
       peerConnection.ontrack = event => {
         if (!remoteStream) {
           remoteStream = new MediaStream();
           remoteVideo.srcObject = remoteStream;
         }
-        event.streams[0].getTracks().forEach(track => {
-          remoteStream.addTrack(track);
-        });
+        event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
       };
 
-      // Xử lý ICE candidate
       peerConnection.onicecandidate = event => {
         if (event.candidate) {
           const candidateData = event.candidate.toJSON();
@@ -114,105 +103,126 @@
       };
     }
 
-    let roomRef; // Tham chiếu đến node cuộc gọi hiện tại
+    let roomRef;  // Tham chiếu đến room hiện tại
 
-    // Hàm bắt đầu cuộc gọi dựa theo vai trò
+    // Khởi tạo cuộc gọi dựa theo vai trò
     async function startCall(roomRef, role) {
       if (role === "caller") {
-        // Caller tạo offer
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        await roomRef.update({ offer: { sdp: offer.sdp, type: offer.type } });
+        try {
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          await roomRef.update({ offer: { sdp: offer.sdp, type: offer.type } });
+          console.log("Caller: Gửi offer", offer);
 
-        // Lắng nghe answer từ Callee
-        roomRef.child("answer").on("value", async snapshot => {
-          const answer = snapshot.val();
-          if (answer && !peerConnection.currentRemoteDescription) {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+          // Lắng nghe answer từ Callee
+          roomRef.child("answer").on("value", async snapshot => {
+            const answer = snapshot.val();
+            if (answer && !peerConnection.currentRemoteDescription) {
+              console.log("Caller: Nhận answer", answer);
+              await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            }
+          });
+
+          // Lắng nghe ICE candidate từ Callee
+          roomRef.child("answerCandidates").on("child_added", snapshot => {
+            const candidate = snapshot.val();
+            console.log("Caller: Nhận candidate từ Callee", candidate);
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          });
+        } catch (error) {
+          console.error("Caller lỗi:", error);
+        }
+      } else {
+        // Callee
+        try {
+          const callData = (await roomRef.once("value")).val();
+          if (!callData || !callData.offer) {
+            console.error("Callee: Không tìm thấy offer trong room");
+            return;
           }
-        });
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
+          await roomRef.update({ answer: { sdp: answer.sdp, type: answer.type } });
+          console.log("Callee: Gửi answer", answer);
 
-        // Lắng nghe ICE candidate từ Callee
-        roomRef.child("answerCandidates").on("child_added", snapshot => {
-          const candidate = snapshot.val();
-          peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        });
-
-      } else { // Callee
-        // Lấy offer từ Caller
-        const callData = (await roomRef.once("value")).val();
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        await roomRef.update({ answer: { sdp: answer.sdp, type: answer.type } });
-
-        // Lắng nghe ICE candidate từ Caller
-        roomRef.child("offerCandidates").on("child_added", snapshot => {
-          const candidate = snapshot.val();
-          peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        });
+          // Lắng nghe ICE candidate từ Caller
+          roomRef.child("offerCandidates").on("child_added", snapshot => {
+            const candidate = snapshot.val();
+            console.log("Callee: Nhận candidate từ Caller", candidate);
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          });
+        } catch (error) {
+          console.error("Callee lỗi:", error);
+        }
       }
     }
 
-    // Khởi tạo kết nối: lấy stream, tạo RTCPeerConnection và ghép cặp
+    // Tìm đối tác ghép cặp
+    function findPartner() {
+      const waitingRef = database.ref("waiting");
+
+      // Lắng nghe khi có người được thêm vào danh sách chờ
+      waitingRef.on("child_added", snapshot => {
+        const waitingId = snapshot.key;
+        // Nếu có ai đó khác mình, tiến hành ghép cặp
+        if (waitingId !== myId && !roomId) {
+          console.log("Tìm thấy partner:", waitingId);
+          // Xoá partner khỏi danh sách chờ
+          waitingRef.child(waitingId).remove();
+          // Tạo room ID theo thứ tự nhất quán
+          roomId = "room_" + (waitingId < myId ? waitingId + "_" + myId : myId + "_" + waitingId);
+          role = "callee";  // Người mới ghép cặp sẽ là Callee
+          roomRef = database.ref("calls/" + roomId);
+          // Ghi lại thông tin ban đầu (caller là partner đã có trong danh sách chờ)
+          roomRef.set({ caller: waitingId });
+          console.log("Ghép cặp thành công với partner:", waitingId);
+          startCall(roomRef, role);
+        }
+      });
+
+      // Nếu không có ai chờ, thêm chính mình vào danh sách chờ
+      database.ref("waiting/" + myId).set({ timestamp: firebase.database.ServerValue.TIMESTAMP });
+      // Xoá tự động khi disconnect
+      database.ref("waiting/" + myId).onDisconnect().remove();
+
+      // Nếu có ai ghép cặp với mình khi mình là người chờ (lắng nghe room được tạo với caller là mình)
+      database.ref("calls").orderByChild("caller").equalTo(myId).on("child_added", snapshot => {
+        if (!roomId) {
+          roomId = snapshot.key;
+          role = "caller";  // Khi có người ghép cặp, người chờ trở thành Caller
+          roomRef = database.ref("calls/" + roomId);
+          console.log("Có người ghép cặp với bạn, room:", roomId);
+          startCall(roomRef, role);
+        }
+      });
+    }
+
+    // Hàm kết thúc cuộc gọi và reset kết nối
+    function hangup() {
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      if (roomRef) {
+        roomRef.remove();
+        roomRef = null;
+      }
+      roomId = null;
+      role = null;
+      remoteStream = null;
+      console.log("Cuộc gọi kết thúc, tìm partner mới...");
+      // Thêm lại mình vào danh sách chờ và tìm partner mới
+      findPartner();
+    }
+
+    // Khởi tạo toàn bộ quá trình
     async function initConnection() {
       await startLocalStream();
       createPeerConnection();
       findPartner();
     }
 
-    // Hàm tìm partner: nếu có người trong danh sách chờ thì ghép cặp, nếu không thì tự thêm vào danh sách chờ
-    function findPartner() {
-      const waitingRef = database.ref("waiting");
-      waitingRef.once("value", snapshot => {
-        let partnerFound = false;
-        snapshot.forEach(child => {
-          if (child.key !== myId) { // Tìm được partner khác
-            partnerFound = true;
-            const partnerId = child.key;
-            // Loại partner ra khỏi danh sách chờ
-            waitingRef.child(partnerId).remove();
-            // Tạo room id (sắp xếp theo thứ tự để nhất quán)
-            roomId = "room_" + (partnerId < myId ? partnerId + "_" + myId : myId + "_" + partnerId);
-            role = "callee"; // Người vừa tham gia sẽ là Callee
-            roomRef = database.ref("calls/" + roomId);
-            // Ghi thông tin ban đầu cho room: caller là người đã có sẵn (partner)
-            roomRef.set({ caller: partnerId });
-            console.log("Ghép cặp thành công với partner:", partnerId);
-            startCall(roomRef, role);
-          }
-        });
-        // Nếu không có partner đang chờ, thêm chính mình vào danh sách chờ
-        if (!partnerFound) {
-          waitingRef.child(myId).set({ timestamp: firebase.database.ServerValue.TIMESTAMP });
-          waitingRef.child(myId).onDisconnect().remove();
-          // Lắng nghe sự kiện có ai ghép cặp với mình (khi một người khác tìm thấy mình)
-          database.ref("calls").orderByChild("caller").equalTo(myId).on("child_added", snapshot => {
-            roomId = snapshot.key;
-            role = "caller"; // Người đang chờ trở thành Caller khi có ai ghép cặp với mình
-            roomRef = database.ref("calls/" + roomId);
-            console.log("Đã có người ghép cặp, bắt đầu call với room:", roomId);
-            startCall(roomRef, role);
-          });
-        }
-      });
-    }
-
-    // Hàm kết thúc cuộc gọi: đóng kết nối, xóa dữ liệu room và quay lại danh sách chờ
-    function hangup() {
-      if (peerConnection) peerConnection.close();
-      if (roomRef) roomRef.remove();
-      // Reset lại các biến
-      remoteStream = null;
-      peerConnection = null;
-      roomId = null;
-      role = null;
-      // Quay lại tìm partner mới
-      findPartner();
-      console.log("Cuộc gọi kết thúc, đang tìm partner mới...");
-    }
-
-    // Bắt đầu quá trình
     initConnection();
   </script>
 </body>
