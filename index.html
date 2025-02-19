@@ -1,203 +1,148 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cuộc Gọi Video &amp; Âm Thanh - Firebase Signaling (Auto Connect)</title>
-  <!-- Import Bootstrap CSS -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
-  <style>
-    video {
-      width: 100%;
-      max-width: 600px;
-      margin-bottom: 20px;
-      border: 1px solid #ccc;
-    }
-  </style>
-  <!-- Firebase scripts -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <title>WebRTC Call</title>
+    <style>
+        #localVideo, #remoteVideo {
+            width: 300px;
+            height: 200px;
+            border: 1px solid black;
+        }
+    </style>
 </head>
 <body>
-<div class="container mt-4">
-  <h1 class="text-center">Cuộc Gọi Video &amp; Âm Thanh (Firebase Signaling - Auto Connect)</h1>
-  <div class="row">
-    <div class="col-md-6">
-      <h4>Video của bạn</h4>
-      <video id="localVideo" autoplay muted></video>
-    </div>
-    <div class="col-md-6">
-      <h4>Video đối phương</h4>
-      <video id="remoteVideo" autoplay></video>
-    </div>
-  </div>
-  <div id="status" class="mt-3 text-center"></div>
-  <div class="text-center mt-3">
-    <button id="endCall" class="btn btn-danger">Kết thúc cuộc gọi</button>
-  </div>
-</div>
 
-<script>
-  // ----------------- CẤU HÌNH FIREBASE -----------------
-  // Thay thế các giá trị dưới đây bằng cấu hình Firebase của bạn
-  var firebaseConfig = {
-apiKey: "AIzaSyBvxl_a9NurzYLnAfuYM1sHnfuCc03gjoA",
-    authDomain: "waitcall-87f5e.firebaseapp.com",
-    databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
-    projectId: "waitcall-87f5e",
-    storageBucket: "waitcall-87f5e.firebasestorage.app",
-    messagingSenderId: "535766267900",
-    appId: "1:535766267900:web:572b04459493c157bd6479"
-  };
-  // Khởi tạo Firebase
-  firebase.initializeApp(firebaseConfig);
-  var database = firebase.database();
+    <h1>WebRTC Call</h1>
 
-  // Sử dụng một room cố định cho ví dụ này
-  var roomRef = database.ref("webrtc-room");
+    <video id="localVideo" autoplay muted></video>
+    <video id="remoteVideo" autoplay></video>
 
-  // ----------------- KHỞI TẠO -----------------
-  // Tạo một mã định danh ngẫu nhiên cho client
-  var clientId = Math.random().toString(36).substr(2, 9);
-  var isOfferer = false;
-  var peerConnection = null;
-  var localStream = null;
-  var configuration = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    <button id="callButton">Call</button>
+    <button id="hangupButton">Hang Up</button>
 
-  // Các thành phần giao diện
-  var localVideo = document.getElementById("localVideo");
-  var remoteVideo = document.getElementById("remoteVideo");
-  var statusDiv = document.getElementById("status");
-  var endCallButton = document.getElementById("endCall");
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
 
-  // Hàm cập nhật trạng thái hiển thị
-  function updateStatus(message) {
-    console.log(message);
-    statusDiv.innerText = message;
-  }
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvxl_a9NurzYLnAfuYM1sHnfuCc03gjoA",
+            authDomain: "waitcall-87f5e.firebaseapp.com",
+            databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "waitcall-87f5e",
+            storageBucket: "waitcall-87f5e.firebasestorage.app",
+            messagingSenderId: "535766267900",
+            appId: "1:535766267900:web:572b04459493c157bd6479"
+        };
 
-  // Hàm gửi tin nhắn signaling lên Firebase
-  function sendMessage(message) {
-    message.clientId = clientId;
-    roomRef.push(message);
-  }
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
 
-  // ----------------- TẠO KẾT NỐI WebRTC -----------------
-  function createPeerConnection() {
-    peerConnection = new RTCPeerConnection(configuration);
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const callButton = document.getElementById('callButton');
+        const hangupButton = document.getElementById('hangupButton');
 
-    // Gửi ICE candidate khi có
-    peerConnection.onicecandidate = function(event) {
-      if (event.candidate) {
-        sendMessage({ type: "candidate", candidate: event.candidate });
-      }
-    };
+        let peerConnection;
+        let localStream;
+        let remoteStream;
+        let roomId;
 
-    // Khi nhận được remote stream, hiển thị lên video của bên kia
-    peerConnection.ontrack = function(event) {
-      if (remoteVideo.srcObject !== event.streams[0]) {
-        remoteVideo.srcObject = event.streams[0];
-        updateStatus("Đã nhận được stream của đối phương");
-      }
-    };
+        // Function to create or join a room
+        async function createOrJoinRoom() {
+            // Basic authentication (you'll likely want to improve this)
+            await auth.signInAnonymously();
 
-    // Thêm các track của local stream vào peerConnection
-    if (localStream) {
-      localStream.getTracks().forEach(function(track) {
-        peerConnection.addTrack(track, localStream);
-      });
-    }
-  }
+            // Generate a unique room ID (you can use a library for this)
+            roomId = 'test-room'; // Replace with dynamic room ID generation
 
-  // ----------------- LẮNG NGHE THÔNG ĐIỆP TỪ FIREBASE -----------------
-  roomRef.on("child_added", async function(snapshot) {
-    var message = snapshot.val();
-    // Bỏ qua tin nhắn của chính mình
-    if (message.clientId === clientId) return;
+            const roomRef = db.ref(`rooms/${roomId}`);
 
-    console.log("Nhận message:", message);
+            // Check if the room exists
+            const roomSnapshot = await roomRef.once('value');
 
-    if (message.type === "ready") {
-      updateStatus("Nhận thông báo 'ready' từ client " + message.clientId);
-      console.log("Local clientId:", clientId, " - Received clientId:", message.clientId);
-      // Nếu chưa có kết nối và clientId của mình nhỏ hơn, tôi đảm nhận vai trò offerer
-      if (!peerConnection && clientId < message.clientId) {
-        isOfferer = true;
-        updateStatus("Bạn là offerer. Tạo offer...");
-        createPeerConnection();
-        try {
-          const offer = await peerConnection.createOffer();
-          await peerConnection.setLocalDescription(offer);
-          sendMessage({ type: "offer", sdp: peerConnection.localDescription });
-          updateStatus("Offer đã gửi qua Firebase");
-        } catch (err) {
-          console.error("Lỗi khi tạo offer:", err);
-          updateStatus("Lỗi khi tạo offer");
+            if (!roomSnapshot.exists()) {
+                // Create the room
+                await roomRef.set({ creator: auth.currentUser.uid });
+                console.log('Room created.');
+            } else {
+                console.log('Room joined.');
+            }
+
+            return roomRef;
         }
-      }
-    }
 
-    if (message.type === "offer") {
-      updateStatus("Nhận offer từ đối phương");
-      if (!peerConnection) {
-        isOfferer = false;
-        createPeerConnection();
-      }
-      try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        sendMessage({ type: "answer", sdp: peerConnection.localDescription });
-        updateStatus("Answer đã gửi qua Firebase");
-      } catch (err) {
-        console.error("Lỗi khi xử lý offer:", err);
-        updateStatus("Lỗi khi xử lý offer");
-      }
-    }
 
-    if (message.type === "answer") {
-      updateStatus("Nhận answer từ đối phương");
-      try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
-      } catch (err) {
-        console.error("Lỗi khi đặt remote description từ answer:", err);
-        updateStatus("Lỗi khi đặt remote description từ answer");
-      }
-    }
+        async function startCall() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
 
-    if (message.type === "candidate") {
-      if (peerConnection) {
-        try {
-          await peerConnection.addIceCandidate(message.candidate);
-        } catch (err) {
-          console.error("Lỗi khi thêm ICE candidate:", err);
+                const roomRef = await createOrJoinRoom();
+
+                peerConnection = new RTCPeerConnection(null);
+
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        roomRef.child('candidates').push(event.candidate);
+                    }
+                };
+
+                peerConnection.ontrack = event => {
+                    remoteVideo.srcObject = event.streams[0];
+                };
+
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                // Offer
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                await roomRef.child('offer').set(offer);
+
+                // Listen for answer
+                roomRef.child('answer').on('value', async snapshot => {
+                    if (snapshot.val()) {
+                        await peerConnection.setRemoteDescription(snapshot.val());
+                    }
+                });
+
+                // Listen for remote candidates
+                roomRef.child('candidates').on('child_added', async snapshot => {
+                    if (snapshot.val()) {
+                        try {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+                        } catch (error) {
+                            console.error("Error adding ICE candidate:", error);
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error starting call:", error);
+            }
         }
-      }
-    }
-  });
 
-  // ----------------- LẤY LOCAL STREAM -----------------
-  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-    .then(function(stream) {
-      localStream = stream;
-      localVideo.srcObject = stream;
-      updateStatus("Đã lấy được local stream");
-      // Sau khi lấy được stream, gửi thông báo "ready"
-      sendMessage({ type: "ready" });
-    })
-    .catch(function(err) {
-      console.error("Lỗi khi truy cập media:", err);
-      updateStatus("Lỗi khi truy cập camera/microphone");
-    });
+        async function hangup() {
+            if (peerConnection) {
+                peerConnection.close();
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            remoteVideo.srcObject = null;
 
-  // ----------------- KẾT THÚC CUỘC GỌI -----------------
-  endCallButton.addEventListener("click", function() {
-    if (peerConnection) {
-      peerConnection.close();
-      peerConnection = null;
-      updateStatus("Cuộc gọi đã kết thúc");
-    }
-  });
-</script>
+            // Clean up Firebase room (optional)
+            if (roomId) {
+                const roomRef = db.ref(`rooms/${roomId}`);
+                roomRef.remove();
+            }
+        }
+
+        callButton.addEventListener('click', startCall);
+        hangupButton.addEventListener('click', hangup);
+
+    </script>
+
 </body>
 </html>
