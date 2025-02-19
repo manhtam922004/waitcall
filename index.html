@@ -579,24 +579,8 @@
             if (peer) {
                 peer.destroy();
             }
-			
-			    // Thêm cấu hình ICE servers
-			const iceServers = [
-				{ urls: 'stun:stun.l.google.com:19302' },
-				{ urls: 'stun:stun1.l.google.com:19302' },
-				{ urls: 'stun:stun2.l.google.com:19302' },
-				// Thêm TURN server nếu có (ví dụ: coturn)
-			];
-
-			peer = new Peer(userId, {
-				config: { 
-					'iceServers': iceServers 
-				},
-				// Bật tính năng vượt NAT mạnh mẽ hơn
-				sdpSemantics: 'unified-plan'
-			});
-
             
+            peer = new Peer(userId);
             
             peer.on('open', (id) => {
                 console.log('PeerJS ID đã mở:', id);
@@ -621,25 +605,16 @@
         async function initMediaStream(mode) {
             try {
                 if (localStream) {
-					localStream.getTracks().forEach(track => track.stop());
-				}
+                    localStream.getTracks().forEach(track => track.stop());
+                }
                 
-                // Sử dụng constraints linh hoạt hơn
-				const constraints = {
-					audio: {
-						echoCancellation: true,
-						noiseSuppression: true
-					},
-					video: mode === 'video' ? { 
-						width: { ideal: 640 }, 
-						height: { ideal: 480 },
-						facingMode: 'user' 
-					} : false
-				};
-
+                const constraints = {
+                    audio: true,
+                    video: mode === 'video'
+                };
                 
                 localStream = await navigator.mediaDevices.getUserMedia(constraints);
-				localVideo.srcObject = localStream;
+                localVideo.srcObject = localStream;
                 
                 return localStream;
             } catch (error) {
@@ -799,18 +774,11 @@
 				isConnected = true;
 				updateStatusUI('connected');
 				
-				
 				// Thiết lập kết nối dữ liệu - khởi tạo trước
 				initiateDataConnection(partnerId);
 				
 				// Đợi một chút để đảm bảo kết nối dữ liệu được thiết lập
-				await new Promise((resolve, reject) => {
-					setTimeout(() => {
-						if (!isConnected) reject('Connection timeout');
-						else resolve();
-					}, 15000); // 15s timeout
-				});
-
+				await new Promise(resolve => setTimeout(resolve, 1000));
 				
 				// Nếu là chế độ video hoặc audio, bắt đầu cuộc gọi
 				if (currentMode !== 'chat') {
@@ -900,13 +868,10 @@
         
         // Thiết lập kết nối media
         function setupMediaConnection(call) {
-			call.on('iceStateChanged', (state) => {
-				console.log('ICE connection state:', state);
-				if (state === 'disconnected' || state === 'failed') {
-					handleDisconnect();
-				}
-			});
-
+			call.on('stream', (stream) => {
+				console.log('Đã nhận stream từ xa');
+				remoteVideo.srcObject = stream;
+				
 				// Nếu đang ở chế độ audio, thiết lập audio analyzer
 				if (currentMode === 'audio' && stream.getAudioTracks().length > 0) {
 					setTimeout(() => {
