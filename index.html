@@ -536,12 +536,7 @@
         async function init() {
 			try {
 				// Kiểm tra kết nối internet
-				const isOnline = await checkInternetConnection();
-				if (!isOnline) {
-					statusMessage.textContent = 'Lỗi kiểm tra kết nối. Vui lòng tải lại trang.';
-					console.error('Lỗi kiểm tra internet, nhưng có thể vẫn có mạng');
-					return;
-				}
+				
 
 				
 				// Tạo ID người dùng
@@ -579,24 +574,7 @@
 				window.addEventListener('beforeunload', cleanup);
 				
 				// Kiểm tra kết nối internet định kỳ
-				setInterval(async () => {
-					const isOnline = await checkInternetConnection();
-					if (!isOnline && (isConnected || isWaiting)) {
-						statusMessage.textContent = 'Mất kết nối internet. Đang cố gắng kết nối lại...';
-						// Thử lại sau một khoảng thời gian
-						setTimeout(async () => {
-							const reconnected = await checkInternetConnection();
-							if (reconnected) {
-								if (peer) {
-									peer.reconnect();
-								} else {
-									initPeerJS();
-								}
-								statusMessage.textContent = 'Đã kết nối lại internet!';
-							}
-						}, 5000);
-					}
-				}, 30000); // Kiểm tra mỗi 30 giây
+				
 				listenForNATRequests();
 
 			} catch (error) {
@@ -669,24 +647,12 @@
 				});
 				
 				peer.on('error', (err) => {
-					console.error('Lỗi PeerJS:', err);
-					// Thêm xử lý lỗi cụ thể hơn
-					if (err.type === 'peer-unavailable') {
-						statusMessage.textContent = 'Không thể kết nối với người dùng này. Đang thử lại...';
-						setTimeout(() => {
-							if (isWaiting) {
-								startWaiting();
-							}
-						}, 3000);
-					} else if (err.type === 'disconnected') {
-						statusMessage.textContent = 'Kết nối bị gián đoạn. Đang kết nối lại...';
-						handleDisconnect();
-					} else if (err.type === 'network') {
-						statusMessage.textContent = 'Lỗi mạng. Vui lòng kiểm tra kết nối internet của bạn.';
-					} else {
-						statusMessage.textContent = 'Đã xảy ra lỗi: ' + err.type;
+					// Xóa thông báo lỗi mạng
+					if (err.type === 'network') {
+						statusMessage.textContent = 'Lỗi kết nối!'; // Giữ ngắn gọn
 					}
 				});
+
 				
 				peer.on('disconnected', () => {
 					console.log('PeerJS đã ngắt kết nối, đang thử kết nối lại...');
@@ -1010,37 +976,7 @@
 		}
 
         // Bổ sung hàm kiểm tra kết nối internet
-		function checkInternetConnection() {
-			return new Promise((resolve) => {
-				// Sử dụng fetch API thay vì XMLHttpRequest
-				fetch('https://httpbin.org/get', {
-					method: 'HEAD',
-					mode: 'no-cors',
-					cache: 'no-cache'
-				})
-				.then(() => {
-					resolve(true); // Thành công khi có phản hồi
-				})
-				.catch(() => {
-					// Thử phương pháp dự phòng
-					const xhr = new XMLHttpRequest();
-					xhr.timeout = 5000;
-					xhr.open('GET', 'https://www.google.com/favicon.ico?t=' + Date.now(), true);
-					
-					xhr.onload = () => {
-						if (xhr.status >= 200 && xhr.status < 300) {
-							resolve(true);
-						} else {
-							resolve(false);
-						}
-					};
-					
-					xhr.onerror = () => resolve(false);
-					xhr.ontimeout = () => resolve(false);
-					xhr.send();
-				});
-			});
-		}
+		
 
 
         // Thiết lập kết nối media
