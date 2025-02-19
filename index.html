@@ -538,9 +538,11 @@
 				// Kiểm tra kết nối internet
 				const isOnline = await checkInternetConnection();
 				if (!isOnline) {
-					statusMessage.textContent = 'Không có kết nối internet. Vui lòng kiểm tra lại kết nối của bạn.';
+					statusMessage.textContent = 'Lỗi kiểm tra kết nối. Vui lòng tải lại trang.';
+					console.error('Lỗi kiểm tra internet, nhưng có thể vẫn có mạng');
 					return;
 				}
+
 				
 				// Tạo ID người dùng
 				userId = generateUserId();
@@ -1010,40 +1012,36 @@
         // Bổ sung hàm kiểm tra kết nối internet
 		function checkInternetConnection() {
 			return new Promise((resolve) => {
-				const xhr = new XMLHttpRequest();
-				const timeoutDuration = 5000; // 5 giây
-				let isResolved = false;
-				
-				const timeout = setTimeout(() => {
-					if (!isResolved) {
-						xhr.abort();
-						isResolved = true;
-						resolve(false);
-					}
-				}, timeoutDuration);
-				
-				xhr.onreadystatechange = function() {
-					if (xhr.readyState === 4) {
-						clearTimeout(timeout);
-						if (!isResolved) {
-							isResolved = true;
-							resolve(xhr.status === 200);
+				// Sử dụng fetch API thay vì XMLHttpRequest
+				fetch('https://httpbin.org/get', {
+					method: 'HEAD',
+					mode: 'no-cors',
+					cache: 'no-cache'
+				})
+				.then(() => {
+					resolve(true); // Thành công khi có phản hồi
+				})
+				.catch(() => {
+					// Thử phương pháp dự phòng
+					const xhr = new XMLHttpRequest();
+					xhr.timeout = 5000;
+					xhr.open('GET', 'https://www.google.com/favicon.ico?t=' + Date.now(), true);
+					
+					xhr.onload = () => {
+						if (xhr.status >= 200 && xhr.status < 300) {
+							resolve(true);
+						} else {
+							resolve(false);
 						}
-					}
-				};
-				
-				try {
-					xhr.open('HEAD', 'https://www.google.com/generate_204', true);
+					};
+					
+					xhr.onerror = () => resolve(false);
+					xhr.ontimeout = () => resolve(false);
 					xhr.send();
-				} catch (error) {
-					clearTimeout(timeout);
-					if (!isResolved) {
-						isResolved = true;
-						resolve(false);
-					}
-				}
+				});
 			});
 		}
+
 
         // Thiết lập kết nối media
         function setupMediaConnection(call) {
