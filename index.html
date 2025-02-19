@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cuộc Gọi Video &amp; Âm Thanh - Firebase Signaling</title>
+  <title>Cuộc Gọi Video &amp; Âm Thanh - Firebase Signaling (Auto Connect)</title>
   <!-- Import Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <style>
@@ -20,7 +20,7 @@
 </head>
 <body>
 <div class="container mt-4">
-  <h1 class="text-center">Cuộc Gọi Video &amp; Âm Thanh (Firebase Signaling)</h1>
+  <h1 class="text-center">Cuộc Gọi Video &amp; Âm Thanh (Firebase Signaling - Auto Connect)</h1>
   <div class="row">
     <div class="col-md-6">
       <h4>Video của bạn</h4>
@@ -41,7 +41,7 @@
   // ----------------- CẤU HÌNH FIREBASE -----------------
   // Thay thế các giá trị dưới đây bằng cấu hình Firebase của bạn
   var firebaseConfig = {
-    apiKey: "AIzaSyBvxl_a9NurzYLnAfuYM1sHnfuCc03gjoA",
+apiKey: "AIzaSyBvxl_a9NurzYLnAfuYM1sHnfuCc03gjoA",
     authDomain: "waitcall-87f5e.firebaseapp.com",
     databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
     projectId: "waitcall-87f5e",
@@ -49,46 +49,78 @@
     messagingSenderId: "535766267900",
     appId: "1:535766267900:web:572b04459493c157bd6479"
   };
+  // Khởi tạo Firebase
   firebase.initializeApp(firebaseConfig);
   var database = firebase.database();
-  
-  // Sử dụng một room cố định để đơn giản hóa ví dụ
-  const roomRef = database.ref("webrtc-room");
+
+  // Sử dụng một room cố định cho ví dụ này
+  var roomRef = database.ref("webrtc-room");
 
   // ----------------- KHỞI TẠO -----------------
   // Tạo một mã định danh ngẫu nhiên cho client
-  const clientId = Math.random().toString(36).substr(2, 9);
-  let isOfferer = false;
-  let peerConnection = null;
-  let localStream = null;
-  const configuration = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+  var clientId = Math.random().toString(36).substr(2, 9);
+  var isOfferer = false;
+  var peerConnection = null;
+  var localStream = null;
+  var configuration = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
   // Các thành phần giao diện
-  const localVideo = document.getElementById("localVideo");
-  const remoteVideo = document.getElementById("remoteVideo");
-  const statusDiv = document.getElementById("status");
-  const endCallButton = document.getElementById("endCall");
+  var localVideo = document.getElementById("localVideo");
+  var remoteVideo = document.getElementById("remoteVideo");
+  var statusDiv = document.getElementById("status");
+  var endCallButton = document.getElementById("endCall");
 
+  // Hàm cập nhật trạng thái hiển thị
   function updateStatus(message) {
     console.log(message);
     statusDiv.innerText = message;
   }
 
-  // Gửi thông điệp lên Firebase
+  // Hàm gửi tin nhắn signaling lên Firebase
   function sendMessage(message) {
     message.clientId = clientId;
     roomRef.push(message);
   }
 
-  // ----------------- XỬ LÝ THÔNG ĐIỆP TỪ FIREBASE -----------------
-  roomRef.on("child_added", async snapshot => {
-    const message = snapshot.val();
+  // ----------------- TẠO KẾT NỐI WebRTC -----------------
+  function createPeerConnection() {
+    peerConnection = new RTCPeerConnection(configuration);
+
+    // Gửi ICE candidate khi có
+    peerConnection.onicecandidate = function(event) {
+      if (event.candidate) {
+        sendMessage({ type: "candidate", candidate: event.candidate });
+      }
+    };
+
+    // Khi nhận được remote stream, hiển thị lên video của bên kia
+    peerConnection.ontrack = function(event) {
+      if (remoteVideo.srcObject !== event.streams[0]) {
+        remoteVideo.srcObject = event.streams[0];
+        updateStatus("Đã nhận được stream của đối phương");
+      }
+    };
+
+    // Thêm các track của local stream vào peerConnection
+    if (localStream) {
+      localStream.getTracks().forEach(function(track) {
+        peerConnection.addTrack(track, localStream);
+      });
+    }
+  }
+
+  // ----------------- LẮNG NGHE THÔNG ĐIỆP TỪ FIREBASE -----------------
+  roomRef.on("child_added", async function(snapshot) {
+    var message = snapshot.val();
     // Bỏ qua tin nhắn của chính mình
     if (message.clientId === clientId) return;
-    
+
+    console.log("Nhận message:", message);
+
     if (message.type === "ready") {
       updateStatus("Nhận thông báo 'ready' từ client " + message.clientId);
-      // Quyết định vai trò: người có clientId nhỏ hơn sẽ là offerer
+      console.log("Local clientId:", clientId, " - Received clientId:", message.clientId);
+      // Nếu chưa có kết nối và clientId của mình nhỏ hơn, tôi đảm nhận vai trò offerer
       if (!peerConnection && clientId < message.clientId) {
         isOfferer = true;
         updateStatus("Bạn là offerer. Tạo offer...");
@@ -104,6 +136,7 @@
         }
       }
     }
+
     if (message.type === "offer") {
       updateStatus("Nhận offer từ đối phương");
       if (!peerConnection) {
@@ -121,6 +154,7 @@
         updateStatus("Lỗi khi xử lý offer");
       }
     }
+
     if (message.type === "answer") {
       updateStatus("Nhận answer từ đối phương");
       try {
@@ -130,6 +164,7 @@
         updateStatus("Lỗi khi đặt remote description từ answer");
       }
     }
+
     if (message.type === "candidate") {
       if (peerConnection) {
         try {
@@ -141,46 +176,22 @@
     }
   });
 
-  // ----------------- TẠO KẾT NỐI WebRTC -----------------
-  function createPeerConnection() {
-    peerConnection = new RTCPeerConnection(configuration);
-    
-    peerConnection.onicecandidate = event => {
-      if (event.candidate) {
-        sendMessage({ type: "candidate", candidate: event.candidate });
-      }
-    };
-    
-    peerConnection.ontrack = event => {
-      if (remoteVideo.srcObject !== event.streams[0]) {
-        remoteVideo.srcObject = event.streams[0];
-        updateStatus("Đã nhận được stream của đối phương");
-      }
-    };
-    
-    if (localStream) {
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-      });
-    }
-  }
-
   // ----------------- LẤY LOCAL STREAM -----------------
   navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-    .then(stream => {
+    .then(function(stream) {
       localStream = stream;
       localVideo.srcObject = stream;
       updateStatus("Đã lấy được local stream");
       // Sau khi lấy được stream, gửi thông báo "ready"
       sendMessage({ type: "ready" });
     })
-    .catch(err => {
+    .catch(function(err) {
       console.error("Lỗi khi truy cập media:", err);
       updateStatus("Lỗi khi truy cập camera/microphone");
     });
 
   // ----------------- KẾT THÚC CUỘC GỌI -----------------
-  endCallButton.addEventListener("click", () => {
+  endCallButton.addEventListener("click", function() {
     if (peerConnection) {
       peerConnection.close();
       peerConnection = null;
