@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WebRTC Call - Manual Signaling</title>
+  <title>Cuộc Gọi Video &amp; Âm Thanh - Auto Signaling</title>
   <!-- Import Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <style>
@@ -11,20 +11,13 @@
       width: 100%;
       max-width: 600px;
       margin-bottom: 20px;
-    }
-    textarea {
-      width: 100%;
-      height: 150px;
-      resize: none;
-    }
-    .sdp-section {
-      margin-bottom: 20px;
+      border: 1px solid #ccc;
     }
   </style>
 </head>
 <body>
 <div class="container mt-4">
-  <h1 class="text-center">Cuộc Gọi Video &amp; Âm Thanh (Manual Signaling)</h1>
+  <h1 class="text-center">Cuộc Gọi Video &amp; Âm Thanh (Auto Signaling)</h1>
   <div class="row">
     <div class="col-md-6">
       <h4>Video của bạn</h4>
@@ -35,63 +28,59 @@
       <video id="remoteVideo" autoplay></video>
     </div>
   </div>
-  <hr>
-  <div class="sdp-section">
-    <h4>Local SDP (Copy &amp; gửi cho bên kia)</h4>
-    <textarea id="localSDP" readonly></textarea>
-    <button id="createOffer" class="btn btn-primary">Tạo Offer</button>
-    <button id="createAnswer" class="btn btn-secondary">Tạo Answer (sau khi nhận Offer)</button>
+  <div id="status" class="mt-3 text-center"></div>
+  <div class="text-center mt-3">
+    <button id="endCall" class="btn btn-danger">Kết thúc cuộc gọi</button>
   </div>
-  <div class="sdp-section">
-    <h4>Remote SDP (Dán SDP nhận được từ bên kia)</h4>
-    <textarea id="remoteSDP"></textarea>
-    <button id="setRemote" class="btn btn-success">Đặt Remote SDP</button>
-  </div>
-  <button id="endCall" class="btn btn-danger">Kết thúc cuộc gọi</button>
-  <div id="status" class="mt-3"></div>
 </div>
 
 <script>
-  let localStream;
-  let peerConnection;
-  const localVideo = document.getElementById("localVideo");
-  const remoteVideo = document.getElementById("remoteVideo");
-  const localSDPTextarea = document.getElementById("localSDP");
-  const remoteSDPTextarea = document.getElementById("remoteSDP");
-  const statusDiv = document.getElementById("status");
-
-  // Cấu hình ICE server (sử dụng STUN của Google)
+  // Tạo một mã định danh ngẫu nhiên cho client
+  const clientId = Math.random().toString(36).substr(2, 9);
+  let isOfferer = false;
+  let peerConnection = null;
+  let localStream = null;
   const configuration = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-  // Lấy media từ camera và microphone của người dùng
-  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-    .then(stream => {
-      localStream = stream;
-      localVideo.srcObject = stream;
-    })
-    .catch(err => {
-      console.error("Lỗi khi truy cập media:", err);
-      statusDiv.innerText = "Lỗi khi truy cập camera và microphone.";
-    });
+  // Các thành phần giao diện
+  const localVideo = document.getElementById("localVideo");
+  const remoteVideo = document.getElementById("remoteVideo");
+  const statusDiv = document.getElementById("status");
+  const endCallButton = document.getElementById("endCall");
 
+  // Tạo BroadcastChannel để trao đổi thông điệp giữa các tab/trình duyệt cùng origin
+  const channel = new BroadcastChannel("webrtc-channel");
+
+  // Hàm cập nhật trạng thái
+  function updateStatus(message) {
+    console.log(message);
+    statusDiv.innerText = message;
+  }
+
+  // Tạo RTCPeerConnection và thiết lập các sự kiện cần thiết
   function createPeerConnection() {
     peerConnection = new RTCPeerConnection(configuration);
 
-    // Xử lý ICE candidate: khi gathering hoàn tất (candidate=null) thì hiển thị SDP
+    // Khi có ICE candidate mới, gửi candidate qua BroadcastChannel
     peerConnection.onicecandidate = event => {
-      if (event.candidate === null) {
-        // ICE gathering đã hoàn tất, hiển thị SDP đã được setLocalDescription
-        localSDPTextarea.value = JSON.stringify(peerConnection.localDescription);
-        statusDiv.innerText = "SDP đã được tạo. Sao chép và gửi cho đối phương.";
+      if (event.candidate) {
+        channel.postMessage({
+          type: "candidate",
+          candidate: event.candidate,
+          clientId: clientId
+        });
       }
     };
 
-    // Khi nhận được remote stream, hiển thị lên video của bên kia
+    // Khi nhận được track từ remote, hiển thị lên remoteVideo
     peerConnection.ontrack = event => {
-      remoteVideo.srcObject = event.streams[0];
+      if (remoteVideo.srcObject !== event.streams[0]) {
+        remoteVideo.srcObject = event.streams[0];
+        updateStatus("Đã nhận được stream của đối phương");
+      }
     };
 
-    // Thêm các track từ local stream vào peerConnection
+    // Thêm các track của localStream vào kết nối
     if (localStream) {
       localStream.getTracks().forEach(track => {
         peerConnection.addTrack(track, localStream);
@@ -99,59 +88,106 @@
     }
   }
 
-  // Tạo offer và hiển thị SDP sau khi ICE gathering hoàn tất
-  document.getElementById("createOffer").addEventListener("click", async () => {
-    createPeerConnection();
-    try {
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      statusDiv.innerText = "Đang tạo offer, chờ ICE gathering hoàn tất...";
-    } catch (err) {
-      console.error("Lỗi khi tạo offer:", err);
-      statusDiv.innerText = "Lỗi khi tạo offer.";
-    }
-  });
+  // Xử lý các thông điệp nhận từ BroadcastChannel
+  channel.onmessage = async event => {
+    const message = event.data;
+    // Bỏ qua thông điệp do chính mình gửi
+    if (message.clientId === clientId) return;
 
-  // Tạo answer sau khi đã nhận offer từ đối phương
-  document.getElementById("createAnswer").addEventListener("click", async () => {
-    if (!peerConnection) {
-      createPeerConnection();
+    // Nếu nhận thông điệp "ready"
+    if (message.type === "ready") {
+      updateStatus(`Nhận thông báo ready từ client ${message.clientId}`);
+      // Quyết định vai trò: người có clientId nhỏ hơn sẽ là offerer
+      if (!peerConnection) {
+        if (clientId < message.clientId) {
+          isOfferer = true;
+          updateStatus("Bạn là offerer. Tạo offer...");
+          createPeerConnection();
+          try {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            // Gửi offer qua channel
+            channel.postMessage({
+              type: "offer",
+              sdp: peerConnection.localDescription,
+              clientId: clientId
+            });
+            updateStatus("Offer đã gửi qua BroadcastChannel");
+          } catch (err) {
+            console.error("Lỗi khi tạo offer:", err);
+            updateStatus("Lỗi khi tạo offer");
+          }
+        }
+      }
     }
-    try {
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      statusDiv.innerText = "Đang tạo answer, chờ ICE gathering hoàn tất...";
-    } catch (err) {
-      console.error("Lỗi khi tạo answer:", err);
-      statusDiv.innerText = "Lỗi khi tạo answer.";
-    }
-  });
 
-  // Đặt Remote SDP từ đối phương (bạn phải copy SDP nhận được và dán vào ô Remote SDP)
-  document.getElementById("setRemote").addEventListener("click", async () => {
-    const remoteSDP = remoteSDPTextarea.value;
-    if (!remoteSDP) {
-      alert("Vui lòng dán Remote SDP vào ô trống.");
-      return;
+    // Nếu nhận offer từ đối phương
+    if (message.type === "offer") {
+      updateStatus("Nhận offer từ đối phương");
+      if (!peerConnection) {
+        isOfferer = false;
+        createPeerConnection();
+      }
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        // Gửi answer qua channel
+        channel.postMessage({
+          type: "answer",
+          sdp: peerConnection.localDescription,
+          clientId: clientId
+        });
+        updateStatus("Answer đã gửi qua BroadcastChannel");
+      } catch (err) {
+        console.error("Lỗi khi xử lý offer:", err);
+        updateStatus("Lỗi khi xử lý offer");
+      }
     }
-    try {
-      const remoteDescription = new RTCSessionDescription(JSON.parse(remoteSDP));
-      await peerConnection.setRemoteDescription(remoteDescription);
-      statusDiv.innerText = "Đã đặt Remote SDP thành công.";
-    } catch (err) {
-      console.error("Lỗi khi đặt Remote SDP:", err);
-      statusDiv.innerText = "Lỗi khi đặt Remote SDP. Kiểm tra lại định dạng.";
-    }
-  });
 
-  // Kết thúc cuộc gọi
-  document.getElementById("endCall").addEventListener("click", () => {
+    // Nếu nhận answer từ đối phương
+    if (message.type === "answer") {
+      updateStatus("Nhận answer từ đối phương");
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+      } catch (err) {
+        console.error("Lỗi khi đặt remote description từ answer:", err);
+        updateStatus("Lỗi khi đặt remote description từ answer");
+      }
+    }
+
+    // Nếu nhận ICE candidate từ đối phương
+    if (message.type === "candidate") {
+      if (peerConnection) {
+        try {
+          await peerConnection.addIceCandidate(message.candidate);
+        } catch (err) {
+          console.error("Lỗi khi thêm ICE candidate:", err);
+        }
+      }
+    }
+  };
+
+  // Lấy local stream từ camera và microphone
+  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    .then(stream => {
+      localStream = stream;
+      localVideo.srcObject = stream;
+      updateStatus("Đã lấy được local stream");
+      // Gửi thông báo ready qua BroadcastChannel
+      channel.postMessage({ type: "ready", clientId: clientId });
+    })
+    .catch(err => {
+      console.error("Lỗi khi truy cập media:", err);
+      updateStatus("Lỗi khi truy cập camera/microphone");
+    });
+
+  // Kết thúc cuộc gọi: đóng kết nối và reset trạng thái
+  endCallButton.addEventListener("click", () => {
     if (peerConnection) {
       peerConnection.close();
       peerConnection = null;
-      statusDiv.innerText = "Cuộc gọi đã kết thúc.";
-      localSDPTextarea.value = "";
-      remoteSDPTextarea.value = "";
+      updateStatus("Cuộc gọi đã kết thúc");
     }
   });
 </script>
