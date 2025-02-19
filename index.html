@@ -779,9 +779,10 @@
 					},
 					countries: {
 						[userId]: userCountry,
-						[partnerId]: partnerCountry || 'Unknown'
+						[partnerId]: partnerData.country || 'Unknown' // Sửa từ partnerCountry
 					}
 				});
+
 				
 				console.log('Đã tạo phòng mới:', roomRef.key);
 				
@@ -820,36 +821,57 @@
 				isConnected = true;
 				updateStatusUI('connected');
 				
-				// Hiển thị quốc gia của đối tác
-				updatePartnerCountryUI(partnerCountry);
+				// Debug: Kiểm tra giá trị partnerCountry nhận được
+				console.log('Thông tin quốc gia đối tác:', {
+					partnerId,
+					partnerCountry,
+					fromArgument: partnerCountry,
+					fromRoom: roomRef?.key ? (await roomRef.once('value')).val()?.countries?.[partnerId] : 'N/A'
+				});
+
+				// Xử lý trường hợp không có thông tin quốc gia
+				const finalCountry = partnerCountry || 'Không xác định';
 				
-				// Thiết lập kết nối dữ liệu - khởi tạo trước
+				// Hiển thị quốc gia của đối tác
+				updatePartnerCountryUI(finalCountry);
+				
+				// Thiết lập kết nối dữ liệu
 				initiateDataConnection(partnerId);
 				
-				// Đợi một chút để đảm bảo kết nối dữ liệu được thiết lập
+				// Đợi 1s để đảm bảo kết nối dữ liệu ổn định
 				await new Promise(resolve => setTimeout(resolve, 1000));
 				
-				// Nếu là chế độ video hoặc audio, bắt đầu cuộc gọi
+				// Xử lý kết nối media theo chế độ
 				if (currentMode !== 'chat') {
 					initiateMediaConnection(partnerId);
 					
-					// Nếu là chế độ audio, thiết lập audio analyzer sau khi kết nối
 					if (currentMode === 'audio') {
-						// Đợi media connection được thiết lập
 						setTimeout(() => {
-							setupAudioAnalyzer();
+							try {
+								setupAudioAnalyzer();
+							} catch (error) {
+								console.error('Lỗi khởi tạo audio analyzer:', error);
+							}
 						}, 2000);
 					}
 				}
 				
-				// Phần còn lại giữ nguyên
+				// Gửi thông tin quốc gia qua chat (tuỳ chọn)
+				if (dataConnection?.open) {
+					dataConnection.send({
+						type: 'system',
+						message: `Quốc gia của tôi: ${userCountry}`
+					});
+				}
 			} catch (error) {
-				console.error('Lỗi khi kết nối với đối tác:', error);
+				console.error('Lỗi kết nối:', {
+					error,
+					partnerId,
+					partnerCountry
+				});
 				handleDisconnect();
 			}
 		}
-
-
 
         
         // Khởi tạo kết nối dữ liệu
@@ -1017,15 +1039,16 @@
 		// Thêm hàm lấy thông tin quốc gia
 		async function getUserCountry() {
 			try {
-				const response = await fetch('https://ipapi.co/json/');
+				const response = await fetch('https://ipinfo.io/json?token=35938ef454f7bc'); // Đăng ký token miễn phí
 				const data = await response.json();
-				userCountry = data.country_name || 'Unknown';
+				userCountry = data.country || 'Unknown'; // Sửa thành data.country
 				console.log('Quốc gia người dùng:', userCountry);
 			} catch (error) {
 				console.error('Không thể lấy thông tin quốc gia:', error);
 				userCountry = 'Unknown';
 			}
 		}
+
 
 
         // Dọn dẹp tài nguyên
