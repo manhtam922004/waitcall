@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cuộc Gọi Video &amp; Âm Thanh - Auto Signaling</title>
+  <title>Cuộc Gọi Video &amp; Âm Thanh - Firebase Signaling</title>
   <!-- Import Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <style>
@@ -14,10 +14,13 @@
       border: 1px solid #ccc;
     }
   </style>
+  <!-- Firebase scripts -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
 <div class="container mt-4">
-  <h1 class="text-center">Cuộc Gọi Video &amp; Âm Thanh (Auto Signaling)</h1>
+  <h1 class="text-center">Cuộc Gọi Video &amp; Âm Thanh (Firebase Signaling)</h1>
   <div class="row">
     <div class="col-md-6">
       <h4>Video của bạn</h4>
@@ -35,6 +38,24 @@
 </div>
 
 <script>
+  // ----------------- CẤU HÌNH FIREBASE -----------------
+  // Thay thế các giá trị dưới đây bằng cấu hình Firebase của bạn
+  var firebaseConfig = {
+    apiKey: "AIzaSyBvxl_a9NurzYLnAfuYM1sHnfuCc03gjoA",
+    authDomain: "waitcall-87f5e.firebaseapp.com",
+    databaseURL: "https://waitcall-87f5e.firebaseio.com",
+    projectId: "waitcall-87f5e",
+    storageBucket: "waitcall-87f5e.firebasestorage.app",
+    messagingSenderId: "535766267900",
+    appId: "1:535766267900:web:572b04459493c157bd6479"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var database = firebase.database();
+  
+  // Sử dụng một room cố định để đơn giản hóa ví dụ
+  const roomRef = database.ref("webrtc-room");
+
+  // ----------------- KHỞI TẠO -----------------
   // Tạo một mã định danh ngẫu nhiên cho client
   const clientId = Math.random().toString(36).substr(2, 9);
   let isOfferer = false;
@@ -48,80 +69,41 @@
   const statusDiv = document.getElementById("status");
   const endCallButton = document.getElementById("endCall");
 
-  // Tạo BroadcastChannel để trao đổi thông điệp giữa các tab/trình duyệt cùng origin
-  const channel = new BroadcastChannel("webrtc-channel");
-
-  // Hàm cập nhật trạng thái
   function updateStatus(message) {
     console.log(message);
     statusDiv.innerText = message;
   }
 
-  // Tạo RTCPeerConnection và thiết lập các sự kiện cần thiết
-  function createPeerConnection() {
-    peerConnection = new RTCPeerConnection(configuration);
-
-    // Khi có ICE candidate mới, gửi candidate qua BroadcastChannel
-    peerConnection.onicecandidate = event => {
-      if (event.candidate) {
-        channel.postMessage({
-          type: "candidate",
-          candidate: event.candidate,
-          clientId: clientId
-        });
-      }
-    };
-
-    // Khi nhận được track từ remote, hiển thị lên remoteVideo
-    peerConnection.ontrack = event => {
-      if (remoteVideo.srcObject !== event.streams[0]) {
-        remoteVideo.srcObject = event.streams[0];
-        updateStatus("Đã nhận được stream của đối phương");
-      }
-    };
-
-    // Thêm các track của localStream vào kết nối
-    if (localStream) {
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-      });
-    }
+  // Gửi thông điệp lên Firebase
+  function sendMessage(message) {
+    message.clientId = clientId;
+    roomRef.push(message);
   }
 
-  // Xử lý các thông điệp nhận từ BroadcastChannel
-  channel.onmessage = async event => {
-    const message = event.data;
-    // Bỏ qua thông điệp do chính mình gửi
+  // ----------------- XỬ LÝ THÔNG ĐIỆP TỪ FIREBASE -----------------
+  roomRef.on("child_added", async snapshot => {
+    const message = snapshot.val();
+    // Bỏ qua tin nhắn của chính mình
     if (message.clientId === clientId) return;
-
-    // Nếu nhận thông điệp "ready"
+    
     if (message.type === "ready") {
-      updateStatus(`Nhận thông báo ready từ client ${message.clientId}`);
+      updateStatus("Nhận thông báo 'ready' từ client " + message.clientId);
       // Quyết định vai trò: người có clientId nhỏ hơn sẽ là offerer
-      if (!peerConnection) {
-        if (clientId < message.clientId) {
-          isOfferer = true;
-          updateStatus("Bạn là offerer. Tạo offer...");
-          createPeerConnection();
-          try {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            // Gửi offer qua channel
-            channel.postMessage({
-              type: "offer",
-              sdp: peerConnection.localDescription,
-              clientId: clientId
-            });
-            updateStatus("Offer đã gửi qua BroadcastChannel");
-          } catch (err) {
-            console.error("Lỗi khi tạo offer:", err);
-            updateStatus("Lỗi khi tạo offer");
-          }
+      if (!peerConnection && clientId < message.clientId) {
+        isOfferer = true;
+        updateStatus("Bạn là offerer. Tạo offer...");
+        createPeerConnection();
+        try {
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          sendMessage({ type: "offer", sdp: peerConnection.localDescription });
+          updateStatus("Offer đã gửi qua Firebase");
+        } catch (err) {
+          console.error("Lỗi khi tạo offer:", err);
+          updateStatus("Lỗi khi tạo offer");
         }
       }
     }
-
-    // Nếu nhận offer từ đối phương
     if (message.type === "offer") {
       updateStatus("Nhận offer từ đối phương");
       if (!peerConnection) {
@@ -132,20 +114,13 @@
         await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        // Gửi answer qua channel
-        channel.postMessage({
-          type: "answer",
-          sdp: peerConnection.localDescription,
-          clientId: clientId
-        });
-        updateStatus("Answer đã gửi qua BroadcastChannel");
+        sendMessage({ type: "answer", sdp: peerConnection.localDescription });
+        updateStatus("Answer đã gửi qua Firebase");
       } catch (err) {
         console.error("Lỗi khi xử lý offer:", err);
         updateStatus("Lỗi khi xử lý offer");
       }
     }
-
-    // Nếu nhận answer từ đối phương
     if (message.type === "answer") {
       updateStatus("Nhận answer từ đối phương");
       try {
@@ -155,8 +130,6 @@
         updateStatus("Lỗi khi đặt remote description từ answer");
       }
     }
-
-    // Nếu nhận ICE candidate từ đối phương
     if (message.type === "candidate") {
       if (peerConnection) {
         try {
@@ -166,23 +139,47 @@
         }
       }
     }
-  };
+  });
 
-  // Lấy local stream từ camera và microphone
+  // ----------------- TẠO KẾT NỐI WebRTC -----------------
+  function createPeerConnection() {
+    peerConnection = new RTCPeerConnection(configuration);
+    
+    peerConnection.onicecandidate = event => {
+      if (event.candidate) {
+        sendMessage({ type: "candidate", candidate: event.candidate });
+      }
+    };
+    
+    peerConnection.ontrack = event => {
+      if (remoteVideo.srcObject !== event.streams[0]) {
+        remoteVideo.srcObject = event.streams[0];
+        updateStatus("Đã nhận được stream của đối phương");
+      }
+    };
+    
+    if (localStream) {
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+    }
+  }
+
+  // ----------------- LẤY LOCAL STREAM -----------------
   navigator.mediaDevices.getUserMedia({ video: true, audio: true })
     .then(stream => {
       localStream = stream;
       localVideo.srcObject = stream;
       updateStatus("Đã lấy được local stream");
-      // Gửi thông báo ready qua BroadcastChannel
-      channel.postMessage({ type: "ready", clientId: clientId });
+      // Sau khi lấy được stream, gửi thông báo "ready"
+      sendMessage({ type: "ready" });
     })
     .catch(err => {
       console.error("Lỗi khi truy cập media:", err);
       updateStatus("Lỗi khi truy cập camera/microphone");
     });
 
-  // Kết thúc cuộc gọi: đóng kết nối và reset trạng thái
+  // ----------------- KẾT THÚC CUỘC GỌI -----------------
   endCallButton.addEventListener("click", () => {
     if (peerConnection) {
       peerConnection.close();
