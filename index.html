@@ -1,193 +1,219 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
-    <title>Video Call</title>
-    <meta charset="UTF-8">
-    <style>
-        #video-container {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        video {
-            width: 400px;
-            height: 300px;
-            background: #000;
-        }
-        .controls {
-            margin: 20px 0;
-            display: flex;
-            gap: 10px;
-        }
-        input {
-            padding: 8px;
-            width: 200px;
-        }
-        button {
-            padding: 8px 16px;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Cuộc gọi Video - Ghép cặp tự động</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 { color: #333; }
+    #videos {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    video {
+      width: 45%;
+      margin: 0 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body>
-    <div>
-        <input type="text" id="callId" placeholder="Nhập ID cuộc gọi">
-        <div class="controls">
-            <button onclick="startCall()">Bắt đầu cuộc gọi</button>
-            <button onclick="joinCall()">Tham gia cuộc gọi</button>
-            <button onclick="hangUp()">Kết thúc</button>
-        </div>
-    </div>
-    <div id="video-container">
-        <video id="localVideo" autoplay muted></video>
-        <video id="remoteVideo" autoplay></video>
-    </div>
+  <h1>Cuộc gọi Video - Ghép cặp tự động</h1>
+  <div id="videos">
+    <video id="localVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+  <button id="hangupBtn">Kết thúc cuộc gọi</button>
 
-    <!-- Firebase và WebRTC adapter -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+  <!-- Thêm thư viện Firebase (phiên bản 8) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-    <script>
-        // Khởi tạo Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyBvxl_a9NurzYLnAfuYM1sHnfuCc03gjoA",
-            authDomain: "waitcall-87f5e.firebaseapp.com",
-            databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
-            projectId: "waitcall-87f5e",
-            storageBucket: "waitcall-87f5e.firebasestorage.app",
-            messagingSenderId: "535766267900",
-            appId: "1:535766267900:web:572b04459493c157bd6479"
-        };
-        
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+  <script>
+    // Cấu hình Firebase của bạn
+    var firebaseConfig = {
+      apiKey: "AIzaSyBvxl_a9NurzYLnAfuYM1sHnfuCc03gjoA",
+      authDomain: "waitcall-87f5e.firebaseapp.com",
+      databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
+      projectId: "waitcall-87f5e",
+      storageBucket: "waitcall-87f5e.firebasestorage.app",
+      messagingSenderId: "535766267900",
+      appId: "1:535766267900:web:572b04459493c157bd6479"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
 
-        let localStream;
-        let remoteStream;
-        let peerConnection;
-        let callId;
-        
-        // Thiết lập kết nối WebRTC
-        const servers = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' }
-            ]
-        };
+    // Cấu hình ICE cho WebRTC
+    const configuration = { 
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
+    };
 
-        // Khởi tạo stream video
-        async function setupMedia() {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('localVideo').srcObject = localStream;
-            } catch (error) {
-                console.error('Lỗi truy cập thiết bị:', error);
-            }
+    // Các biến toàn cục
+    let localStream, remoteStream, peerConnection;
+    let roomId = null, role = null; // role: "caller" hoặc "callee"
+    // Tạo id duy nhất cho người dùng (dùng key của Firebase)
+    const myId = firebase.database().ref().push().key;
+
+    // Tham chiếu đến các element
+    const localVideo = document.getElementById("localVideo");
+    const remoteVideo = document.getElementById("remoteVideo");
+    const hangupBtn = document.getElementById("hangupBtn");
+    hangupBtn.onclick = hangup;
+
+    // Lấy media của local (video & audio)
+    async function startLocalStream() {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = localStream;
+      } catch (err) {
+        console.error("Lỗi khi lấy local stream:", err);
+      }
+    }
+
+    // Tạo RTCPeerConnection và thiết lập các sự kiện
+    function createPeerConnection() {
+      peerConnection = new RTCPeerConnection(configuration);
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      // Nhận track từ remote stream
+      peerConnection.ontrack = event => {
+        if (!remoteStream) {
+          remoteStream = new MediaStream();
+          remoteVideo.srcObject = remoteStream;
         }
+        event.streams[0].getTracks().forEach(track => {
+          remoteStream.addTrack(track);
+        });
+      };
 
-        // Tạo peer connection
-        function createPeerConnection() {
-            peerConnection = new RTCPeerConnection(servers);
-            
-            remoteStream = new MediaStream();
-            document.getElementById('remoteVideo').srcObject = remoteStream;
-
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-
-            peerConnection.ontrack = event => {
-                event.streams[0].getTracks().forEach(track => {
-                    remoteStream.addTrack(track);
-                });
-            };
-
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    database.ref(callId + '/candidates').push(event.candidate.toJSON());
-                }
-            };
+      // Xử lý ICE candidate
+      peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+          const candidateData = event.candidate.toJSON();
+          if (role === "caller") {
+            roomRef.child("offerCandidates").push(candidateData);
+          } else {
+            roomRef.child("answerCandidates").push(candidateData);
+          }
         }
+      };
+    }
 
-        // Bắt đầu cuộc gọi
-        async function startCall() {
-            await setupMedia();
-            callId = document.getElementById('callId').value || Math.random().toString(36).substring(7);
-            document.getElementById('callId').value = callId;
-            
-            createPeerConnection();
-            
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            
-            database.ref(callId).set({
-                offer: offer,
-                answer: null,
-                candidates: {}
-            });
-            
-            listenForAnswer();
+    let roomRef; // Tham chiếu đến node cuộc gọi hiện tại
+
+    // Hàm bắt đầu cuộc gọi dựa theo vai trò
+    async function startCall(roomRef, role) {
+      if (role === "caller") {
+        // Caller tạo offer
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        await roomRef.update({ offer: { sdp: offer.sdp, type: offer.type } });
+
+        // Lắng nghe answer từ Callee
+        roomRef.child("answer").on("value", async snapshot => {
+          const answer = snapshot.val();
+          if (answer && !peerConnection.currentRemoteDescription) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+          }
+        });
+
+        // Lắng nghe ICE candidate từ Callee
+        roomRef.child("answerCandidates").on("child_added", snapshot => {
+          const candidate = snapshot.val();
+          peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        });
+
+      } else { // Callee
+        // Lấy offer từ Caller
+        const callData = (await roomRef.once("value")).val();
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        await roomRef.update({ answer: { sdp: answer.sdp, type: answer.type } });
+
+        // Lắng nghe ICE candidate từ Caller
+        roomRef.child("offerCandidates").on("child_added", snapshot => {
+          const candidate = snapshot.val();
+          peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        });
+      }
+    }
+
+    // Khởi tạo kết nối: lấy stream, tạo RTCPeerConnection và ghép cặp
+    async function initConnection() {
+      await startLocalStream();
+      createPeerConnection();
+      findPartner();
+    }
+
+    // Hàm tìm partner: nếu có người trong danh sách chờ thì ghép cặp, nếu không thì tự thêm vào danh sách chờ
+    function findPartner() {
+      const waitingRef = database.ref("waiting");
+      waitingRef.once("value", snapshot => {
+        let partnerFound = false;
+        snapshot.forEach(child => {
+          if (child.key !== myId) { // Tìm được partner khác
+            partnerFound = true;
+            const partnerId = child.key;
+            // Loại partner ra khỏi danh sách chờ
+            waitingRef.child(partnerId).remove();
+            // Tạo room id (sắp xếp theo thứ tự để nhất quán)
+            roomId = "room_" + (partnerId < myId ? partnerId + "_" + myId : myId + "_" + partnerId);
+            role = "callee"; // Người vừa tham gia sẽ là Callee
+            roomRef = database.ref("calls/" + roomId);
+            // Ghi thông tin ban đầu cho room: caller là người đã có sẵn (partner)
+            roomRef.set({ caller: partnerId });
+            console.log("Ghép cặp thành công với partner:", partnerId);
+            startCall(roomRef, role);
+          }
+        });
+        // Nếu không có partner đang chờ, thêm chính mình vào danh sách chờ
+        if (!partnerFound) {
+          waitingRef.child(myId).set({ timestamp: firebase.database.ServerValue.TIMESTAMP });
+          waitingRef.child(myId).onDisconnect().remove();
+          // Lắng nghe sự kiện có ai ghép cặp với mình (khi một người khác tìm thấy mình)
+          database.ref("calls").orderByChild("caller").equalTo(myId).on("child_added", snapshot => {
+            roomId = snapshot.key;
+            role = "caller"; // Người đang chờ trở thành Caller khi có ai ghép cặp với mình
+            roomRef = database.ref("calls/" + roomId);
+            console.log("Đã có người ghép cặp, bắt đầu call với room:", roomId);
+            startCall(roomRef, role);
+          });
         }
+      });
+    }
 
-        // Tham gia cuộc gọi
-        async function joinCall() {
-            await setupMedia();
-            callId = document.getElementById('callId').value;
-            
-            createPeerConnection();
-            
-            const callRef = database.ref(callId);
-            callRef.once('value').then(async snapshot => {
-                const data = snapshot.val();
-                if (data.offer) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                    
-                    const answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-                    
-                    callRef.update({ answer: answer });
-                }
-            });
-            
-            listenForCandidates();
-        }
+    // Hàm kết thúc cuộc gọi: đóng kết nối, xóa dữ liệu room và quay lại danh sách chờ
+    function hangup() {
+      if (peerConnection) peerConnection.close();
+      if (roomRef) roomRef.remove();
+      // Reset lại các biến
+      remoteStream = null;
+      peerConnection = null;
+      roomId = null;
+      role = null;
+      // Quay lại tìm partner mới
+      findPartner();
+      console.log("Cuộc gọi kết thúc, đang tìm partner mới...");
+    }
 
-        // Lắng nghe answer từ peer
-        function listenForAnswer() {
-            database.ref(callId + '/answer').on('value', async snapshot => {
-                const answer = snapshot.val();
-                if (answer) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                }
-            });
-            
-            listenForCandidates();
-        }
-
-        // Lắng nghe ICE candidates
-        function listenForCandidates() {
-            database.ref(callId + '/candidates').on('child_added', snapshot => {
-                const candidate = new RTCIceCandidate(snapshot.val());
-                peerConnection.addIceCandidate(candidate);
-            });
-        }
-
-        // Kết thúc cuộc gọi
-        function hangUp() {
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-            if (callId) {
-                database.ref(callId).remove();
-                callId = null;
-            }
-            localStream.getTracks().forEach(track => track.stop());
-            document.getElementById('callId').value = '';
-        }
-
-        // Khởi tạo khi trang web load xong
-        window.onload = setupMedia;
-    </script>
+    // Bắt đầu quá trình
+    initConnection();
+  </script>
 </body>
 </html>
