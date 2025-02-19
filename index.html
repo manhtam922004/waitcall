@@ -3,287 +3,270 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WaitCall - Trò chuyện ngẫu nhiên</title>
+    <title>Random Chat - Trò chuyện với người lạ</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        * {
             margin: 0;
             padding: 0;
-            background-color: #f5f5f5;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #f0f2f5;
             color: #333;
         }
         .container {
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-        header {
+        .header {
             text-align: center;
-            margin-bottom: 30px;
+            padding: 20px 0;
+            background-color: #4267B2;
+            color: white;
+            border-radius: 10px;
+            margin-bottom: 20px;
         }
-        h1 {
-            color: #2c3e50;
-        }
-        .mode-selector {
+        .mode-selection {
             display: flex;
             justify-content: center;
             gap: 15px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         .mode-btn {
             padding: 10px 20px;
             border: none;
             border-radius: 5px;
-            font-size: 14px;
+            background-color: #e4e6eb;
             cursor: pointer;
             transition: all 0.3s;
-            background-color: #ecf0f1;
+            font-weight: bold;
         }
         .mode-btn.active {
-            background-color: #3498db;
+            background-color: #4267B2;
             color: white;
         }
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            height: 500px;
+        .mode-btn:hover {
+            opacity: 0.9;
         }
-        .video-container {
+        .action-buttons {
             display: flex;
-            flex-wrap: wrap;
             justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .primary-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4267B2;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .end-btn {
+            background-color: #e41e3f;
+        }
+        .primary-btn:hover {
+            opacity: 0.9;
+        }
+        .status {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #e4e6eb;
+            border-radius: 5px;
+        }
+        .chat-container {
+            display: flex;
+            height: calc(100vh - 300px);
+            min-height: 400px;
             gap: 20px;
             margin-bottom: 20px;
         }
-        .video-box {
-            width: 400px;
-            height: 300px;
-            background-color: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-        }
-        .audio-mode .video-box {
-            background-color: #2c3e50;
+        .video-container {
+            flex: 3;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
+            flex-direction: column;
+            gap: 10px;
         }
-        video {
+        .video-wrapper {
+            position: relative;
+            background-color: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            flex: 1;
+        }
+        .video-element {
             width: 100%;
             height: 100%;
             object-fit: cover;
+        }
+        .local-video-wrapper {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            bottom: 10px;
+            right: 10px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid white;
+            z-index: 10;
+        }
+        .chat-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: white;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message {
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 70%;
+            word-break: break-word;
+        }
+        .message.received {
+            background-color: #e4e6eb;
+            align-self: flex-start;
+        }
+        .message.sent {
+            background-color: #4267B2;
+            color: white;
+            align-self: flex-end;
+        }
+        .message-input {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+        }
+        .message-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+        .message-input button {
+            margin-left: 10px;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 20px;
+            background-color: #4267B2;
+            color: white;
+            cursor: pointer;
+        }
+        .hidden {
+            display: none !important;
         }
         .controls {
             display: flex;
             justify-content: center;
             gap: 15px;
-            margin-top: 20px;
-        }
-        button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .wait-btn {
-            background-color: #3498db;
-            color: white;
-        }
-        .wait-btn:hover {
-            background-color: #2980b9;
-        }
-        .end-btn {
-            background-color: #e74c3c;
-            color: white;
-        }
-        .end-btn:hover {
-            background-color: #c0392b;
-        }
-        .status {
-            text-align: center;
-            margin: 20px 0;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #ecf0f1;
-        }
-        .waiting {
-            background-color: #f39c12;
-            color: white;
-        }
-        .connected {
-            background-color: #2ecc71;
-            color: white;
-        }
-        .hidden {
-            display: none;
-        }
-        .username {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background-color: rgba(0,0,0,0.5);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 3px;
-        }
-        .chat-container {
-            display: flex;
-            flex-direction: column;
-            height: 400px;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #ddd;
-            margin-bottom: 20px;
-        }
-        .chat-messages {
-            flex-grow: 1;
-            padding: 15px;
-            overflow-y: auto;
-            background-color: white;
-        }
-        .chat-input-container {
-            display: flex;
-            padding: 10px;
-            background-color: #ecf0f1;
-        }
-        .chat-input {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-right: 10px;
-        }
-        .send-btn {
-            background-color: #3498db;
-            color: white;
-            padding: 10px 15px;
-        }
-        .message {
-            margin-bottom: 10px;
-            padding: 8px 12px;
-            border-radius: 8px;
-            max-width: 70%;
-            word-wrap: break-word;
-        }
-        .sent {
-            background-color: #3498db;
-            color: white;
-            align-self: flex-end;
-            margin-left: auto;
-        }
-        .received {
-            background-color: #ecf0f1;
-            align-self: flex-start;
-        }
-        .audio-controls {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
             margin-top: 10px;
         }
-        .audio-indicator {
-            width: 60px;
-            height: 60px;
+        .control-btn {
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
+            border: none;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            margin: 0 auto;
         }
-        .speaking {
-            background-color: #2ecc71;
-            animation: pulse 2s infinite;
+        .control-btn i {
+            font-size: 18px;
         }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
+        .control-btn.mute {
+            background-color: #e41e3f;
         }
-        .mode-container {
-            margin-bottom: 20px;
-        }
-        .mode-label {
-            display: block;
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #2c3e50;
+        
+        @media (max-width: 768px) {
+            .chat-container {
+                flex-direction: column;
+                height: auto;
+            }
+            .video-container {
+                height: 300px;
+            }
+            .local-video-wrapper {
+                width: 100px;
+                height: 100px;
+            }
+            .chat-box {
+                height: 300px;
+            }
         }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>WaitCall</h1>
-            <p>Trò chuyện với người lạ</p>
-        </header>
-
-        <div class="mode-selector">
-            <button id="videoMode" class="mode-btn active">Video Call</button>
-            <button id="audioMode" class="mode-btn">Audio Call</button>
-            <button id="chatMode" class="mode-btn">Chat</button>
+        <div class="header">
+            <h1>Random Chat</h1>
+            <p>Trò chuyện với người lạ một cách ngẫu nhiên</p>
         </div>
-
-        <div class="status" id="statusMessage">
-            Chào mừng đến với WaitCall. Nhấn "Bắt đầu tìm kiếm" để kết nối.
+        
+        <div class="mode-selection">
+            <button class="mode-btn active" data-mode="video">Video Call</button>
+            <button class="mode-btn" data-mode="audio">Audio Call</button>
+            <button class="mode-btn" data-mode="chat">Chat Only</button>
         </div>
-
-        <div class="mode-container" id="videoContainer">
-            <div class="video-container">
-                <div class="video-box">
-                    <video id="localVideo" autoplay muted playsinline></video>
-                    <div class="username">Bạn</div>
-                </div>
-                <div class="video-box">
-                    <video id="remoteVideo" autoplay playsinline></video>
-                    <div class="username">Người lạ</div>
-                </div>
-            </div>
+        
+        <div class="status" id="status-message">
+            Chọn chế độ và nhấn "Bắt đầu" để kết nối với người lạ.
         </div>
-
-        <div class="mode-container hidden" id="audioContainer">
-            <div class="video-container audio-mode">
-                <div class="video-box">
-                    <div class="audio-indicator" id="localAudioIndicator">
-                        <i class="fas">🎤</i>
+        
+        <div class="action-buttons">
+            <button class="primary-btn" id="start-btn">Bắt đầu</button>
+            <button class="primary-btn end-btn hidden" id="end-btn">Kết thúc</button>
+        </div>
+        
+        <div class="chat-container">
+            <div class="video-container" id="video-container">
+                <div class="video-wrapper">
+                    <video class="video-element" id="remote-video" autoplay playsinline></video>
+                    <div class="local-video-wrapper">
+                        <video class="video-element" id="local-video" autoplay playsinline muted></video>
                     </div>
-                    <div class="username">Bạn</div>
                 </div>
-                <div class="video-box">
-                    <div class="audio-indicator" id="remoteAudioIndicator">
-                        <i class="fas">🎤</i>
-                    </div>
-                    <div class="username">Người lạ</div>
+                <div class="controls">
+                    <button class="control-btn" id="toggle-video"><i class="fas fa-video"></i></button>
+                    <button class="control-btn" id="toggle-audio"><i class="fas fa-microphone"></i></button>
                 </div>
             </div>
-        </div>
-
-        <div class="mode-container hidden" id="chatContainer">
-            <div class="chat-container">
-                <div class="chat-messages" id="chatMessages"></div>
-                <div class="chat-input-container">
-                    <input type="text" class="chat-input" id="chatInput" placeholder="Nhập tin nhắn...">
-                    <button class="send-btn" id="sendButton">Gửi</button>
+            
+            <div class="chat-box">
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="message-input">
+                    <input type="text" id="message-input" placeholder="Nhập tin nhắn...">
+                    <button id="send-message"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
-        </div>
-
-        <div class="controls">
-            <button id="waitButton" class="wait-btn">Bắt đầu tìm kiếm</button>
-            <button id="endButton" class="end-btn hidden">Kết thúc</button>
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        // Cấu hình Firebase
+        // Khởi tạo Firebase
         const firebaseConfig = {
             authDomain: "waitcall-87f5e.firebaseapp.com",
             databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
@@ -292,550 +275,414 @@
             messagingSenderId: "535766267900",
             appId: "1:535766267900:web:572b04459493c157bd6479"
         };
-
-        // Khởi tạo Firebase
+        
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-
-        // Biến toàn cục
-        let localStream;
-        let peerConnection;
-        let dataChannel;
-        let userId;
-        let roomId;
-        let waitingRef;
-        let roomRef;
-        let currentStatus = 'idle'; // idle, waiting, connected
-        let currentMode = 'video'; // video, audio, chat
-        let audioContext;
-        let audioAnalyser;
-        let remoteAudioAnalyser;
-        let audioDetectionInterval;
-
-        // Elements
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const waitButton = document.getElementById('waitButton');
-        const endButton = document.getElementById('endButton');
-        const statusMessage = document.getElementById('statusMessage');
-        const videoModeBtn = document.getElementById('videoMode');
-        const audioModeBtn = document.getElementById('audioMode');
-        const chatModeBtn = document.getElementById('chatMode');
-        const videoContainer = document.getElementById('videoContainer');
-        const audioContainer = document.getElementById('audioContainer');
-        const chatContainer = document.getElementById('chatContainer');
-        const chatMessages = document.getElementById('chatMessages');
-        const chatInput = document.getElementById('chatInput');
-        const sendButton = document.getElementById('sendButton');
-        const localAudioIndicator = document.getElementById('localAudioIndicator');
-        const remoteAudioIndicator = document.getElementById('remoteAudioIndicator');
-
-        // ICE servers cho WebRTC
-        const servers = {
-            iceServers: [
-                {
-                    urls: [
-                        'stun:stun1.l.google.com:19302',
-                        'stun:stun2.l.google.com:19302',
-                    ],
-                },
-            ],
-        };
-
-        // Khởi tạo
-        async function init() {
-            try {
-                // Thiết lập sự kiện cho các chế độ
-                videoModeBtn.addEventListener('click', () => switchMode('video'));
-                audioModeBtn.addEventListener('click', () => switchMode('audio'));
-                chatModeBtn.addEventListener('click', () => switchMode('chat'));
-                waitButton.addEventListener('click', startWaiting);
-                endButton.addEventListener('click', endCall);
-                sendButton.addEventListener('click', sendMessage);
-                chatInput.addEventListener('keypress', e => {
-                    if (e.key === 'Enter') sendMessage();
-                });
-
-                // Thiết lập AudioContext
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-                // Sự kiện khi người dùng đóng tab
-                window.addEventListener('beforeunload', cleanup);
-
-                // Khởi tạo ID người dùng
-                userId = generateUserId();
-                console.log('User ID:', userId);
-
-                // Khởi tạo chế độ mặc định (video)
-                await switchMode('video');
-            } catch (error) {
-                console.error('Lỗi khởi tạo:', error);
-                statusMessage.textContent = 'Không thể khởi tạo ứng dụng.';
-                statusMessage.style.backgroundColor = '#e74c3c';
-            }
-        }
-
-        // Chuyển đổi chế độ giao tiếp
-        async function switchMode(mode) {
-            if (currentStatus === 'connected') {
-                await endCall();
-            }
-
-            currentMode = mode;
-            
-            // Cập nhật UI
-            videoModeBtn.classList.remove('active');
-            audioModeBtn.classList.remove('active');
-            chatModeBtn.classList.remove('active');
-            videoContainer.classList.add('hidden');
-            audioContainer.classList.add('hidden');
-            chatContainer.classList.add('hidden');
-            
-            // Xóa stream hiện tại nếu có
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            
-            // Thiết lập chế độ được chọn
-            if (mode === 'video') {
-                videoModeBtn.classList.add('active');
-                videoContainer.classList.remove('hidden');
-                // Lấy cả video và audio
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true,
-                });
-                localVideo.srcObject = localStream;
-            } else if (mode === 'audio') {
-                audioModeBtn.classList.add('active');
-                audioContainer.classList.remove('hidden');
-                // Chỉ lấy audio
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: false,
-                    audio: true,
-                });
-                setupAudioVisualizer(localStream);
-            } else if (mode === 'chat') {
-                chatModeBtn.classList.add('active');
-                chatContainer.classList.remove('hidden');
-                // Không cần media stream
-                chatMessages.innerHTML = '';
-            }
-        }
-
-        // Thiết lập hiệu ứng âm thanh
-        function setupAudioVisualizer(stream) {
-            if (!audioContext) return;
-            
-            // Ngắt đo âm lượng cũ nếu có
-            if (audioDetectionInterval) {
-                clearInterval(audioDetectionInterval);
-            }
-            
-            // Tạo phân tích âm thanh
-            const audioSource = audioContext.createMediaStreamSource(stream);
-            audioAnalyser = audioContext.createAnalyser();
-            audioAnalyser.fftSize = 256;
-            audioSource.connect(audioAnalyser);
-            
-            // Khởi tạo buffer để phân tích âm thanh
-            const bufferLength = audioAnalyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-            
-            // Đo và hiển thị âm lượng định kỳ
-            audioDetectionInterval = setInterval(() => {
-                if (!audioAnalyser) return;
-                
-                audioAnalyser.getByteFrequencyData(dataArray);
-                const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
-                
-                // Hiệu ứng khi nói
-                if (average > 20) {
-                    localAudioIndicator.classList.add('speaking');
-                } else {
-                    localAudioIndicator.classList.remove('speaking');
-                }
-            }, 100);
-        }
-
-        // Thiết lập hiệu ứng âm thanh cho người gọi từ xa
-        function setupRemoteAudioVisualizer() {
-            if (!audioContext || !remoteVideo.srcObject) return;
-            
-            const remoteStream = remoteVideo.srcObject;
-            const audioSource = audioContext.createMediaStreamSource(remoteStream);
-            remoteAudioAnalyser = audioContext.createAnalyser();
-            remoteAudioAnalyser.fftSize = 256;
-            audioSource.connect(remoteAudioAnalyser);
-            
-            const bufferLength = remoteAudioAnalyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-            
-            setInterval(() => {
-                if (!remoteAudioAnalyser) return;
-                
-                remoteAudioAnalyser.getByteFrequencyData(dataArray);
-                const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
-                
-                if (average > 20) {
-                    remoteAudioIndicator.classList.add('speaking');
-                } else {
-                    remoteAudioIndicator.classList.remove('speaking');
-                }
-            }, 100);
-        }
-
+        
+        // Đăng nhập ẩn danh
+        let currentUser = null;
+        let currentRoomId = null;
+        let currentPairId = null;
+        let peer = null;
+        let conn = null;
+        let call = null;
+        let localStream = null;
+        let currentMode = 'video';
+        let isWaiting = false;
+        let isConnected = false;
+        let isVideoEnabled = true;
+        let isAudioEnabled = true;
+        
+        // DOM Elements
+        const startBtn = document.getElementById('start-btn');
+        const endBtn = document.getElementById('end-btn');
+        const statusMessage = document.getElementById('status-message');
+        const videoContainer = document.getElementById('video-container');
+        const localVideo = document.getElementById('local-video');
+        const remoteVideo = document.getElementById('remote-video');
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendMessageBtn = document.getElementById('send-message');
+        const toggleVideoBtn = document.getElementById('toggle-video');
+        const toggleAudioBtn = document.getElementById('toggle-audio');
+        const modeBtns = document.querySelectorAll('.mode-btn');
+        
         // Tạo ID ngẫu nhiên
-        function generateUserId() {
-            return Math.random().toString(36).substring(2, 15);
+        function generateId(length = 10) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
         }
-
-        // Bắt đầu chờ
-        async function startWaiting() {
-            if (currentStatus !== 'idle') return;
-
-            updateStatus('waiting');
-            waitButton.classList.add('hidden');
-            endButton.classList.remove('hidden');
-            statusMessage.textContent = 'Đang tìm kiếm người trò chuyện...';
-            statusMessage.classList.add('waiting');
-
-            // Thêm thông tin chế độ vào danh sách chờ
-            waitingRef = database.ref('waiting');
-            
+        
+        // Đăng nhập ẩn danh
+        async function anonymousLogin() {
             try {
-                // Tìm người đang chờ với cùng chế độ
-                const snapshot = await waitingRef.orderByChild('mode').equalTo(currentMode).once('value');
-                const waitingUsers = snapshot.val() || {};
-                const waitingUserIds = Object.keys(waitingUsers).filter(id => id !== userId);
-                
-                if (waitingUserIds.length > 0) {
-                    // Có người đang chờ, tạo phòng
-                    const partnerId = waitingUserIds[0];
-                    await waitingRef.child(partnerId).remove();
-                    createRoom(partnerId);
-                } else {
-                    // Không có ai đang chờ, thêm vào danh sách chờ
-                    await waitingRef.child(userId).set({
-                        timestamp: firebase.database.ServerValue.TIMESTAMP,
-                        mode: currentMode
-                    });
-                    
-                    // Lắng nghe sự kiện khi có phòng mới
-                    listenForRoomCreation();
-                }
+                const result = await firebase.auth().signInAnonymously();
+                currentUser = result.user;
+                console.log('Đăng nhập thành công:', currentUser.uid);
+                return currentUser;
             } catch (error) {
-                console.error('Lỗi khi tìm kiếm đối tác:', error);
-                updateStatus('idle');
+                console.error('Lỗi đăng nhập:', error);
+                throw error;
             }
         }
-
-        // Lắng nghe sự kiện tạo phòng
-        function listenForRoomCreation() {
-            database.ref('rooms').orderByChild('participants/' + userId).equalTo(true)
-                .on('child_added', async (snapshot) => {
-                    // Có phòng mới được tạo với người dùng này
-                    roomId = snapshot.key;
-                    console.log('Phòng mới được tạo:', roomId);
-                    
-                    // Xóa khỏi danh sách chờ
-                    if (waitingRef) {
-                        await waitingRef.child(userId).remove();
-                    }
-                    
-                    // Tham gia phòng
-                    joinRoom(roomId);
-                });
-        }
-
-        // Tạo phòng mới
-        async function createRoom(partnerId) {
-            roomId = `room_${userId}_${partnerId}_${currentMode}`;
-            roomRef = database.ref('rooms/' + roomId);
-            
-            // Thiết lập thông tin phòng
-            await roomRef.set({
-                created: firebase.database.ServerValue.TIMESTAMP,
-                mode: currentMode,
-                participants: {
-                    [userId]: true,
-                    [partnerId]: true
-                }
-            });
-            
-            // Tạo kết nối WebRTC
-            setupPeerConnection();
-            
-            // Tạo và gửi offer
-            createAndSendOffer();
-        }
-
-        // Tham gia phòng
-        function joinRoom(roomIdToJoin) {
-            roomId = roomIdToJoin;
-            roomRef = database.ref('rooms/' + roomId);
-            
-            // Kiểm tra chế độ của phòng
-            roomRef.once('value', snapshot => {
-                const roomData = snapshot.val();
-                if (roomData && roomData.mode !== currentMode) {
-                    // Nếu chế độ không khớp, chuyển sang chế độ của phòng
-                    switchMode(roomData.mode).then(() => {
-                        // Thiết lập kết nối WebRTC
-                        setupPeerConnection();
-                        
-                        // Lắng nghe offer và answer
-                        listenForRemoteSessionDescriptions();
-                    });
-                } else {
-                    // Thiết lập kết nối WebRTC
-                    setupPeerConnection();
-                    
-                    // Lắng nghe offer và answer
-                    listenForRemoteSessionDescriptions();
-                }
-            });
-        }
-
-        // Thiết lập kết nối ngang hàng WebRTC
-        function setupPeerConnection() {
-            peerConnection = new RTCPeerConnection(servers);
-            
-            // Thêm luồng local vào kết nối (nếu có)
-            if (localStream) {
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
+        
+        // Khởi tạo PeerJS
+        function initPeer() {
+            if (peer) {
+                peer.destroy();
             }
             
-            // Thiết lập kênh dữ liệu nếu là chế độ chat
-            if (currentMode === 'chat') {
-                dataChannel = peerConnection.createDataChannel('chat');
-                setupDataChannel(dataChannel);
+            peer = new Peer(currentUser.uid);
+            
+            peer.on('open', (id) => {
+                console.log('PeerJS ID của tôi: ' + id);
+            });
+            
+            peer.on('connection', (dataConnection) => {
+                console.log('Có kết nối dữ liệu đến từ:', dataConnection.peer);
+                setupDataConnection(dataConnection);
+            });
+            
+            peer.on('call', (mediaConnection) => {
+                console.log('Có cuộc gọi đến từ:', mediaConnection.peer);
+                answerCall(mediaConnection);
+            });
+            
+            peer.on('error', (err) => {
+                console.error('Lỗi PeerJS:', err);
+            });
+        }
+        
+        // Khởi tạo stream
+        async function initMediaStream(mode) {
+            try {
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                }
                 
-                peerConnection.ondatachannel = event => {
-                    setupDataChannel(event.channel);
+                const constraints = {
+                    audio: true,
+                    video: mode === 'video'
                 };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localVideo.srcObject = localStream;
+                
+                return localStream;
+            } catch (error) {
+                console.error('Không thể truy cập thiết bị media:', error);
+                alert('Không thể truy cập micro hoặc camera. Vui lòng kiểm tra quyền truy cập.');
+                return null;
+            }
+        }
+        
+        // Xử lý tham gia phòng chờ
+        async function joinWaitingRoom() {
+            if (!currentUser) {
+                try {
+                    await anonymousLogin();
+                    initPeer();
+                } catch (error) {
+                    statusMessage.textContent = 'Lỗi kết nối. Vui lòng thử lại sau.';
+                    return;
+                }
             }
             
-            // Lắng nghe khi có luồng remote
-            peerConnection.ontrack = event => {
-                if (currentMode === 'video') {
-                    remoteVideo.srcObject = event.streams[0];
-                } else if (currentMode === 'audio') {
-                    remoteVideo.srcObject = event.streams[0];
-                    // Thiết lập hiệu ứng âm thanh cho người gọi từ xa
-                    setupRemoteAudioVisualizer();
-                }
-                updateStatus('connected');
-            };
+            isWaiting = true;
+            statusMessage.textContent = 'Đang tìm người trò chuyện...';
             
-            // Lắng nghe các ứng cử viên ICE
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    roomRef.child('candidates/' + userId).push(event.candidate.toJSON());
+            // Khởi tạo media stream dựa trên mode
+            if (currentMode !== 'chat') {
+                const stream = await initMediaStream(currentMode);
+                if (!stream) {
+                    return;
                 }
-            };
+            }
             
-            // Lắng nghe các ứng cử viên ICE từ đối tác
-            roomRef.child('candidates').on('child_added', snapshot => {
-                if (snapshot.key !== userId) {
-                    snapshot.forEach(childSnapshot => {
-                        const candidate = new RTCIceCandidate(childSnapshot.val());
-                        peerConnection.addIceCandidate(candidate);
+            // Thêm vào phòng chờ
+            const waitingRef = database.ref('waiting');
+            const userEntryRef = waitingRef.push({
+                userId: currentUser.uid,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                mode: currentMode
+            });
+            
+            // Lắng nghe các thay đổi trong phòng chờ
+            waitingRef.orderByChild('timestamp').on('value', handleWaitingRoomChange);
+            
+            // Lưu ID của mục chờ này để xóa khi cần
+            currentRoomId = userEntryRef.key;
+        }
+        
+        // Xử lý thay đổi trong phòng chờ
+        function handleWaitingRoomChange(snapshot) {
+            if (!isWaiting || isConnected) return;
+            
+            const waitingUsers = [];
+            snapshot.forEach((childSnapshot) => {
+                const entry = childSnapshot.val();
+                if (entry.userId !== currentUser.uid && entry.mode === currentMode) {
+                    waitingUsers.push({
+                        id: childSnapshot.key,
+                        ...entry
                     });
                 }
             });
+            
+            // Kết nối với người dùng đầu tiên trong hàng đợi có cùng mode
+            if (waitingUsers.length > 0) {
+                const partner = waitingUsers[0];
+                connectWithPartner(partner.userId, partner.id);
+            }
         }
-
-        // Thiết lập kênh dữ liệu cho chat
-        function setupDataChannel(channel) {
-            dataChannel = channel;
+        
+        // Kết nối với đối tác
+        async function connectWithPartner(partnerId, partnerEntryId) {
+            if (isConnected) return;
             
-            dataChannel.onopen = () => {
-                console.log('Kênh dữ liệu đã mở');
-                chatInput.disabled = false;
-            };
+            // Tạo phòng chat mới
+            const roomRef = database.ref('rooms').push({
+                participants: [currentUser.uid, partnerId],
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                mode: currentMode
+            });
             
-            dataChannel.onclose = () => {
-                console.log('Kênh dữ liệu đã đóng');
-                chatInput.disabled = true;
-            };
+            currentPairId = partnerId;
             
-            dataChannel.onmessage = event => {
-                displayMessage(event.data, false);
-            };
+            // Xóa cả hai người dùng khỏi phòng chờ
+            database.ref(`waiting/${currentRoomId}`).remove();
+            database.ref(`waiting/${partnerEntryId}`).remove();
+            
+            // Ngừng lắng nghe phòng chờ
+            database.ref('waiting').off('value', handleWaitingRoomChange);
+            
+            isWaiting = false;
+            isConnected = true;
+            
+            statusMessage.textContent = 'Đã kết nối với một người lạ!';
+            startBtn.classList.add('hidden');
+            endBtn.classList.remove('hidden');
+            
+            // Thiết lập kết nối dữ liệu
+            initiateDataConnection(partnerId);
+            
+            // Nếu là chế độ video hoặc audio, bắt đầu cuộc gọi
+            if (currentMode !== 'chat') {
+                initiateCall(partnerId);
+            }
         }
-
-        // Gửi tin nhắn chat
+        
+        // Khởi tạo kết nối dữ liệu
+        function initiateDataConnection(partnerId) {
+            conn = peer.connect(partnerId);
+            setupDataConnection(conn);
+        }
+        
+        // Thiết lập kết nối dữ liệu
+        function setupDataConnection(dataConnection) {
+            conn = dataConnection;
+            
+            conn.on('open', () => {
+                console.log('Kết nối dữ liệu đã mở');
+                
+                conn.on('data', (data) => {
+                    if (data.type === 'chat') {
+                        displayMessage(data.message, false);
+                    }
+                });
+                
+                conn.on('close', () => {
+                    handleDisconnect();
+                });
+                
+                conn.on('error', (err) => {
+                    console.error('Lỗi kết nối dữ liệu:', err);
+                    handleDisconnect();
+                });
+            });
+        }
+        
+        // Khởi tạo cuộc gọi
+        function initiateCall(partnerId) {
+            call = peer.call(partnerId, localStream);
+            setupMediaConnection(call);
+        }
+        
+        // Trả lời cuộc gọi
+        function answerCall(mediaConnection) {
+            call = mediaConnection;
+            call.answer(localStream);
+            setupMediaConnection(call);
+        }
+        
+        // Thiết lập kết nối media
+        function setupMediaConnection(mediaConnection) {
+            mediaConnection.on('stream', (stream) => {
+                remoteVideo.srcObject = stream;
+            });
+            
+            mediaConnection.on('close', () => {
+                remoteVideo.srcObject = null;
+                handleDisconnect();
+            });
+            
+            mediaConnection.on('error', (err) => {
+                console.error('Lỗi kết nối media:', err);
+                handleDisconnect();
+            });
+        }
+        
+        // Xử lý ngắt kết nối
+        function handleDisconnect() {
+            if (!isConnected) return;
+            
+            isConnected = false;
+            
+            // Xóa tin nhắn
+            chatMessages.innerHTML = '';
+            
+            // Ngừng kết nối đang hoạt động
+            if (conn) {
+                conn.close();
+                conn = null;
+            }
+            
+            if (call) {
+                call.close();
+                call = null;
+            }
+            
+            statusMessage.textContent = 'Kết nối đã kết thúc.';
+            endBtn.classList.add('hidden');
+            startBtn.classList.remove('hidden');
+        }
+        
+        // Gửi tin nhắn
         function sendMessage() {
-            const message = chatInput.value.trim();
-            if (!message || !dataChannel || dataChannel.readyState !== 'open') return;
+            const text = messageInput.value.trim();
+            if (!text || !isConnected || !conn) return;
             
-            dataChannel.send(message);
-            displayMessage(message, true);
-            chatInput.value = '';
+            displayMessage(text, true);
+            
+            conn.send({
+                type: 'chat',
+                message: text
+            });
+            
+            messageInput.value = '';
         }
-
-        // Hiển thị tin nhắn chat
-        function displayMessage(message, isSent) {
-            const messageElement = document.createElement('div');
-            messageElement.classList.add('message');
-            messageElement.classList.add(isSent ? 'sent' : 'received');
-            messageElement.textContent = message;
+        
+        // Hiển thị tin nhắn
+        function displayMessage(text, isSent) {
+            const messageElem = document.createElement('div');
+            messageElem.classList.add('message');
+            messageElem.classList.add(isSent ? 'sent' : 'received');
+            messageElem.textContent = text;
             
-            chatMessages.appendChild(messageElement);
+            chatMessages.appendChild(messageElem);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-
-        // Tạo và gửi offer
-        async function createAndSendOffer() {
-            try {
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                
-                const roomWithOffer = {
-                    offer: {
-                        type: offer.type,
-                        sdp: offer.sdp
-                    }
-                };
-                
-                await roomRef.update(roomWithOffer);
-                listenForRemoteSessionDescriptions();
-            } catch (error) {
-                console.error('Lỗi khi tạo offer:', error);
+        
+        // Chuyển đổi chế độ
+        function switchMode(mode) {
+            if (isConnected || isWaiting) {
+                alert('Vui lòng kết thúc cuộc trò chuyện hiện tại trước khi đổi chế độ.');
+                return;
             }
-        }
-
-        // Lắng nghe mô tả phiên từ xa
-        function listenForRemoteSessionDescriptions() {
-            roomRef.on('value', async snapshot => {
-                const roomData = snapshot.val();
-                if (!roomData) return;
-                
-                // Xử lý answer khi là người tạo offer
-                if (peerConnection.localDescription && peerConnection.localDescription.type === 'offer' && roomData.answer) {
-                    const remoteAnswer = new RTCSessionDescription(roomData.answer);
-                    if (peerConnection.currentRemoteDescription === null) {
-                        await peerConnection.setRemoteDescription(remoteAnswer);
-                    }
-                }
-                
-                // Xử lý offer khi là người nhận
-                else if (!peerConnection.localDescription && roomData.offer) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(roomData.offer));
-                    const answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-                    
-                    const roomWithAnswer = {
-                        answer: {
-                            type: answer.type,
-                            sdp: answer.sdp
-                        }
-                    };
-                    
-                    await roomRef.update(roomWithAnswer);
+            
+            currentMode = mode;
+            
+            // Cập nhật giao diện theo chế độ
+            if (mode === 'chat') {
+                videoContainer.classList.add('hidden');
+            } else {
+                videoContainer.classList.remove('hidden');
+            }
+            
+            // Cập nhật nút chế độ
+            modeBtns.forEach(btn => {
+                if (btn.dataset.mode === mode) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
                 }
             });
         }
-
-        // Kết thúc cuộc gọi
-        async function endCall() {
-            // Đóng kết nối hiện tại
-            await cleanup();
+        
+        // Bật/tắt video
+        function toggleVideo() {
+            if (!localStream) return;
             
-            // Cập nhật UI
-            updateStatus('idle');
-        }
-
-        // Dọn dẹp tài nguyên
-        async function cleanup() {
-            currentStatus = 'idle';
+            const videoTracks = localStream.getVideoTracks();
+            if (videoTracks.length === 0) return;
             
-            // Dừng phân tích âm thanh
-            if (audioDetectionInterval) {
-                clearInterval(audioDetectionInterval);
-                audioDetectionInterval = null;
-            }
+            isVideoEnabled = !isVideoEnabled;
+            videoTracks[0].enabled = isVideoEnabled;
             
-            // Dừng lắng nghe các sự kiện Firebase
-            if (roomRef) {
-                roomRef.off();
-                await roomRef.remove();
-            }
-            
-            if (waitingRef && userId) {
-                await waitingRef.child(userId).remove();
-                database.ref('rooms').off();
-            }
-            
-            // Đóng kết nối WebRTC
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-            
-            // Đóng kênh dữ liệu
-            if (dataChannel) {
-                dataChannel.close();
-                dataChannel = null;
-            }
-            
-            // Xóa luồng video
-            if (currentMode === 'video' || currentMode === 'audio') {
-                remoteVideo.srcObject = null;
-            }
-            
-            // Xóa tin nhắn chat
-            if (currentMode === 'chat') {
-                chatMessages.innerHTML = '';
-                chatInput.disabled = true;
-            }
-            
-            // Cập nhật UI
-            waitButton.classList.remove('hidden');
-            endButton.classList.add('hidden');
-            statusMessage.textContent = 'Chào mừng đến với WaitCall. Nhấn "Bắt đầu tìm kiếm" để kết nối.';
-            statusMessage.classList.remove('waiting', 'connected');
-            localAudioIndicator.classList.remove('speaking');
-            remoteAudioIndicator.classList.remove('speaking');
-        }
-
-        // Cập nhật trạng thái
-        function updateStatus(status) {
-            currentStatus = status;
-            
-            if (status === 'waiting') {
-                waitButton.classList.add('hidden');
-                endButton.classList.remove('hidden');
-                statusMessage.textContent = 'Đang tìm kiếm người trò chuyện...';
-                statusMessage.classList.add('waiting');
-                statusMessage.classList.remove('connected');
-            } else if (status === 'connected') {
-                waitButton.classList.add('hidden');
-                endButton.classList.remove('hidden');
+            toggleVideoBtn.innerHTML = isVideoEnabled ? 
+                '<i class="fas fa-video"></i>' : 
+                '<i class="fas fa-video-slash"></i>';
                 
-                let modeText = '';
-                if (currentMode === 'video') modeText = 'video';
-                else if (currentMode === 'audio') modeText = 'audio';
-                else modeText = 'chat';
-                
-                statusMessage.textContent = `Đã kết nối với người lạ qua ${modeText}. Bạn có thể trò chuyện ngay bây giờ.`;
-                statusMessage.classList.remove('waiting');
-                statusMessage.classList.add('connected');
-                
-                if (currentMode === 'chat') {
-                    chatInput.disabled = false;
-                    chatInput.focus();
-                }
-            } else { // idle
-                waitButton.classList.remove('hidden');
-                endButton.classList.add('hidden');
-                statusMessage.textContent = 'Chào mừng đến với WaitCall. Nhấn "Bắt đầu tìm kiếm" để kết nối.';
-                statusMessage.classList.remove('waiting', 'connected');
+            if (isVideoEnabled) {
+                toggleVideoBtn.classList.remove('mute');
+            } else {
+                toggleVideoBtn.classList.add('mute');
             }
         }
-
-        // Khởi tạo ứng dụng
+        
+        // Bật/tắt âm thanh
+        function toggleAudio() {
+            if (!localStream) return;
+            
+            const audioTracks = localStream.getAudioTracks();
+            if (audioTracks.length === 0) return;
+            
+            isAudioEnabled = !isAudioEnabled;
+            audioTracks[0].enabled = isAudioEnabled;
+            
+            toggleAudioBtn.innerHTML = isAudioEnabled ? 
+                '<i class="fas fa-microphone"></i>' : 
+                '<i class="fas fa-microphone-slash"></i>';
+                
+            if (isAudioEnabled) {
+                toggleAudioBtn.classList.remove('mute');
+            } else {
+                toggleAudioBtn.classList.add('mute');
+            }
+        }
+        
+        // Kết thúc cuộc trò chuyện và tìm người mới
+        async function endAndFindNew() {
+            handleDisconnect();
+            await joinWaitingRoom();
+        }
+        
+        // Event Listeners
+        startBtn.addEventListener('click', joinWaitingRoom);
+        endBtn.addEventListener('click', endAndFindNew);
+        
+        sendMessageBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        modeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                switchMode(btn.dataset.mode);
+            });
+        });
+        
+        toggleVideoBtn.addEventListener('click', toggleVideo);
+        toggleAudioBtn.addEventListener('click', toggleAudio);
+        
+        // Khởi tạo ban đầu
+        switchMode('video');
+    </script>
+</body>
+</html>
