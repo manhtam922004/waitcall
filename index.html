@@ -1,212 +1,99 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ứng dụng Video Call P2P</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-            background-color: #f0f0f0;
-        }
-        .video-container {
-            margin: 20px auto;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-        }
-        video {
-            width: 320px;
-            height: 240px;
-            border: 2px solid #333;
-            border-radius: 5px;
-            background-color: #000;
-        }
-        #info {
-            margin: 10px 0;
-            font-size: 18px;
-        }
-        #remotePeerId {
-            padding: 5px;
-            font-size: 16px;
-            width: 200px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            margin: 5px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        #endCallBtn {
-            background-color: #f44336;
-        }
-        #endCallBtn:hover {
-            background-color: #da190b;
-        }
-    </style>
+    <title>Audio Call P2P</title>
 </head>
 <body>
-    <h1>Video Call Peer-to-Peer</h1>
-    <div id="info">
-        <p>ID của bạn: <strong id="myPeerId">Đang tải...</strong></p>
-        <input type="text" id="remotePeerId" placeholder="Nhập ID người kia">
-    </div>
-    <div>
-        <button onclick="startCall()">Bắt đầu gọi</button>
-        <button id="endCallBtn" onclick="endCall()">Ngắt cuộc gọi</button>
-    </div>
-    <div class="video-container">
-        <div>
-            <h3>Video của bạn</h3>
-            <video id="localVideo" autoplay muted></video>
-        </div>
-        <div>
-            <h3>Video của người kia</h3>
-            <video id="remoteVideo" autoplay></video>
-        </div>
-    </div>
+    <h1>Audio Call Demo (P2P)</h1>
+    
+    <!-- Controls -->
+    <button onclick="startCall()">Start Call</button>
+    <button onclick="endCall()">End Call</button>
+    
+    <!-- Remote Audio -->
+    <audio id="remoteAudio" autoplay></audio>
 
     <script>
-        // Khai báo biến toàn cục
-        let peer;
         let localStream;
-        let currentCall;
+        let peerConnection;
 
-        // Lấy các phần tử DOM
-        const myPeerIdDisplay = document.getElementById('myPeerId');
-        const remotePeerIdInput = document.getElementById('remotePeerId');
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-
-        // Khởi tạo PeerJS
-        function initializePeer() {
-            peer = new Peer({
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
-                },
-                debug: 2 // Hiển thị log cơ bản để debug
-            });
-
-            // Khi Peer được tạo thành công
-            peer.on('open', (id) => {
-                myPeerIdDisplay.textContent = id;
-                console.log('ID của bạn:', id);
-            });
-
-            // Nhận cuộc gọi từ người khác
-            peer.on('call', (call) => {
-                console.log('Có cuộc gọi đến từ:', call.peer);
-                answerCall(call);
-            });
-
-            // Xử lý lỗi
-            peer.on('error', (err) => {
-                console.error('Lỗi:', err.type, err);
-                alert('Đã xảy ra lỗi: ' + err.type);
-            });
-        }
-
-        // Lấy luồng video và audio từ thiết bị
-        async function getLocalStream() {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true
-                });
-                localVideo.srcObject = localStream;
-                console.log('Đã lấy được luồng video/audio của bạn');
-            } catch (err) {
-                console.error('Không thể lấy luồng video/audio:', err);
-                alert('Không thể truy cập camera hoặc micro!');
-            }
-        }
-
-        // Bắt đầu cuộc gọi
-        async function startCall() {
-            const remoteId = remotePeerIdInput.value.trim();
-            if (!remoteId) {
-                alert('Vui lòng nhập ID của người kia!');
-                return;
-            }
-
-            await getLocalStream();
-            if (!localStream) return;
-
-            console.log('Đang gọi tới:', remoteId);
-            const call = peer.call(remoteId, localStream);
-            handleCall(call);
-        }
-
-        // Trả lời cuộc gọi đến
-        async function answerCall(call) {
-            await getLocalStream();
-            if (!localStream) return;
-
-            call.answer(localStream);
-            handleCall(call);
-        }
-
-        // Xử lý kết nối cuộc gọi
-        function handleCall(call) {
-            currentCall = call;
-
-            call.on('stream', (remoteStream) => {
-                remoteVideo.srcObject = remoteStream;
-                console.log('Nhận được luồng video từ:', call.peer);
-            });
-
-            call.on('close', () => {
-                console.log('Cuộc gọi đã kết thúc');
-                cleanupCall();
-            });
-
-            call.on('error', (err) => {
-                console.error('Lỗi trong cuộc gọi:', err);
-                cleanupCall();
-            });
-        }
-
-        // Ngắt cuộc gọi và dọn dẹp
-        function endCall() {
-            if (currentCall) {
-                currentCall.close();
-            }
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-            localVideo.srcObject = null;
-            remoteVideo.srcObject = null;
-            currentCall = null;
-            console.log('Đã ngắt cuộc gọi');
-        }
-
-        // Dọn dẹp sau khi cuộc gọi kết thúc
-        function cleanupCall() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-            localVideo.srcObject = null;
-            remoteVideo.srcObject = null;
-            currentCall = null;
-        }
-
-        // Khởi động ứng dụng
-        window.onload = () => {
-            initializePeer();
+        // Cấu hình WebRTC (dùng public STUN server của Google)
+        const configuration = {
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         };
+
+        // Khởi tạo call
+        async function startCall() {
+            try {
+                // Lấy microphone
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Tạo PeerConnection
+                peerConnection = new RTCPeerConnection(configuration);
+
+                // Thêm stream local vào peerConnection
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+
+                // Nhận stream từ remote
+                peerConnection.ontrack = (event) => {
+                    document.getElementById('remoteAudio').srcObject = event.streams[0];
+                };
+
+                // Xử lý ICE candidates
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        // Gửi candidate đến remote peer (qua signaling server, clipboard, etc.)
+                        // Trong ví dụ này, in ra console để copy/paste thủ công
+                        console.log('ICE Candidate:', JSON.stringify(event.candidate));
+                    }
+                };
+
+                // Tạo offer
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                console.log('Offer:', JSON.stringify(offer));
+
+            } catch (error) {
+                console.error('Error starting call:', error);
+            }
+        }
+
+        // Kết thúc call
+        function endCall() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        // Giả lập signaling: Dán offer/answer/candidate từ remote vào đây
+        // (Trong thực tế, cần dùng signaling server hoặc copy/paste thủ công)
+        async function handleRemoteSignal(signal) {
+            try {
+                const message = JSON.parse(signal);
+                
+                if (message.offer) {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    console.log('Answer:', JSON.stringify(answer));
+                
+                } else if (answer) {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
+                
+                } else if (message.candidate) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+                }
+            } catch (error) {
+                console.error('Error handling signal:', error);
+            }
+        }
     </script>
 </body>
 </html>
