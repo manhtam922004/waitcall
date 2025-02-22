@@ -1,42 +1,79 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Audio Call P2P</title>
+    <title>Audio Call P2P with ID</title>
 </head>
 <body>
-    <h1>Audio Call Demo (P2P)</h1>
+    <h1>Audio Call (Peer-to-Peer)</h1>
     
-    <!-- Controls -->
-    <button onclick="startCall()">Start Call</button>
-    <button onclick="endCall()">End Call</button>
-    
-    <!-- Remote Audio -->
+    <!-- Device ID Input -->
+    <div>
+        <input type="text" id="localId" placeholder="Your ID">
+        <input type="text" id="remoteId" placeholder="Peer's ID">
+        <button onclick="startCall()">Start Call</button>
+        <button onclick="endCall()">End Call</button>
+    </div>
+
+    <!-- SDP Exchange UI -->
+    <div>
+        <h3>Your Offer:</h3>
+        <textarea id="offerArea" readonly></textarea>
+        <h3>Remote Answer:</h3>
+        <textarea id="answerArea"></textarea>
+        <button onclick="acceptAnswer()">Accept Answer</button>
+    </div>
+
     <audio id="remoteAudio" autoplay></audio>
 
+    <!-- Add Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
+
     <script>
+        const firebaseConfig = {
+            authDomain: "waitcall-87f5e.firebaseapp.com",
+            databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "waitcall-87f5e",
+            storageBucket: "waitcall-87f5e.firebasestorage.app",
+            messagingSenderId: "535766267900",
+            appId: "1:535766267900:web:572b04459493c157bd6479"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        
         let localStream;
         let peerConnection;
+        let localId;
+        let remoteId;
 
-        // Cấu hình WebRTC (dùng public STUN server của Google)
+        // Cấu hình ICE
         const configuration = {
             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         };
 
-        // Khởi tạo call
         async function startCall() {
+            localId = document.getElementById('localId').value;
+            remoteId = document.getElementById('remoteId').value;
+            
+            if (!localId || !remoteId) {
+                alert('Please enter both IDs!');
+                return;
+            }
+
             try {
                 // Lấy microphone
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
-                // Tạo PeerConnection
+                // Khởi tạo PeerConnection
                 peerConnection = new RTCPeerConnection(configuration);
 
-                // Thêm stream local vào peerConnection
+                // Thêm stream vào connection
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
                 });
 
-                // Nhận stream từ remote
+                // Xử lý stream từ remote
                 peerConnection.ontrack = (event) => {
                     document.getElementById('remoteAudio').srcObject = event.streams[0];
                 };
@@ -44,24 +81,43 @@
                 // Xử lý ICE candidates
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
-                        // Gửi candidate đến remote peer (qua signaling server, clipboard, etc.)
-                        // Trong ví dụ này, in ra console để copy/paste thủ công
-                        console.log('ICE Candidate:', JSON.stringify(event.candidate));
+                        // Gửi candidate đến remote peer
+                        sendSignal({
+                            type: 'candidate',
+                            candidate: event.candidate
+                        });
                     }
                 };
 
                 // Tạo offer
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
-
-                console.log('Offer:', JSON.stringify(offer));
+                
+                // Hiển thị offer lên UI
+                document.getElementById('offerArea').value = JSON.stringify(offer);
+                
+                // Gửi offer qua Firebase
+                sendSignal({
+                    type: 'offer',
+                    sdp: offer.sdp
+                });
 
             } catch (error) {
                 console.error('Error starting call:', error);
             }
         }
 
-        // Kết thúc call
+        async function acceptAnswer() {
+            const answer = document.getElementById('answerArea').value;
+            if (!answer) return;
+
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(answer)));
+            } catch (error) {
+                console.error('Error accepting answer:', error);
+            }
+        }
+
         function endCall() {
             if (peerConnection) {
                 peerConnection.close();
@@ -72,27 +128,78 @@
             }
         }
 
-        // Giả lập signaling: Dán offer/answer/candidate từ remote vào đây
-        // (Trong thực tế, cần dùng signaling server hoặc copy/paste thủ công)
-        async function handleRemoteSignal(signal) {
+        // Signaling với Firebase
+        function sendSignal(data) {
+            db.ref(`signals/${remoteId}`).push({
+                from: localId,
+                data: data
+            });
+        }
+
+        // Lắng nghe tín hiệu
+        db.ref(`signals/${localId}`).on('child_added', async (snapshot) => {
+            const message = snapshot.val().data;
+            const fromId = snapshot.val().from;
+
             try {
-                const message = JSON.parse(signal);
-                
-                if (message.offer) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
-                    const answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-                    console.log('Answer:', JSON.stringify(answer));
-                
-                } else if (answer) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
-                
-                } else if (message.candidate) {
+                if (message.type === 'offer') {
+                    // Xử lý offer từ remote
+                    await handleRemoteOffer(message.sdp, fromId);
+                } else if (message.type === 'answer') {
+                    // Xử lý answer
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription({
+                        type: 'answer',
+                        sdp: message.sdp
+                    }));
+                } else if (message.type === 'candidate') {
+                    // Thêm ICE candidate
                     await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
                 }
             } catch (error) {
-                console.error('Error handling signal:', error);
+                console.error('Error handling message:', error);
             }
+            
+            // Xóa tin nhắn đã xử lý
+            snapshot.ref.remove();
+        });
+
+        async function handleRemoteOffer(offerSdp, fromId) {
+            // Set remote ID và khởi tạo PeerConnection
+            remoteId = fromId;
+            document.getElementById('remoteId').value = remoteId;
+            
+            peerConnection = new RTCPeerConnection(configuration);
+            
+            // Thêm stream local
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // Xử lý các event
+            peerConnection.ontrack = (event) => {
+                document.getElementById('remoteAudio').srcObject = event.streams[0];
+            };
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    sendSignal({
+                        type: 'candidate',
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            // Set remote description và tạo answer
+            await peerConnection.setRemoteDescription({ type: 'offer', sdp: offerSdp });
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            
+            // Gửi answer về caller
+            sendSignal({
+                type: 'answer',
+                sdp: answer.sdp
+            });
         }
     </script>
 </body>
