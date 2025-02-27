@@ -8,64 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
-	<script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
-    <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
-
     <style>
-	
-		.auth-container {
-            max-width: 500px;
-            margin: 50px auto;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .profile-form {
-            max-width: 500px;
-            margin: 20px auto;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        .form-group select,
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .filter-options {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .filter-group {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 10px;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-		
         * {
             margin: 0;
             padding: 0;
@@ -464,76 +407,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
-
-	<!-- Container xác thực -->
-    <div id="auth-container" class="auth-container">
-        <div id="firebaseui-auth-container"></div>
-    </div>
-
-    <!-- Form thông tin cá nhân -->
-    <div id="profile-form" class="profile-form hidden">
-        <h2>Thông tin cá nhân</h2>
-        <div class="form-group">
-            <label>Giới tính:</label>
-            <select id="gender">
-                <option value="male">Nam</option>
-                <option value="female">Nữ</option>
-                <option value="other">Khác</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>Tuổi:</label>
-            <input type="number" id="age" min="18" max="100">
-        </div>
-        <div class="form-group">
-            <label>Quốc gia:</label>
-            <select id="country"></select>
-        </div>
-        <div class="form-group">
-            <label>Tỉnh/Thành phố:</label>
-            <select id="city"></select>
-        </div>
-        <button id="save-profile" class="primary-btn">Lưu thông tin</button>
-    </div>
-
-    <!-- Container chính của ứng dụng -->
-    <div id="main-container" class="container hidden">
-        <header>
-            <h1>WaitCall</h1>
-            <p>Trò chuyện ngẫu nhiên với người lạ</p>
-            <div id="user-info"></div>
-            <button id="logout-btn" class="primary-btn">Đăng xuất</button>
-        </header>
-
-        <!-- Tùy chọn lọc -->
-        <div class="filter-options">
-            <h3>Tùy chọn tìm kiếm</h3>
-            <div class="filter-group">
-                <div class="form-group">
-                    <label>Giới tính:</label>
-                    <select id="filter-gender">
-                        <option value="any">Tất cả</option>
-                        <option value="male">Nam</option>
-                        <option value="female">Nữ</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Độ tuổi:</label>
-                    <input type="number" id="filter-age-min" placeholder="Từ" min="18" max="100">
-                    <input type="number" id="filter-age-max" placeholder="Đến" min="18" max="100">
-                </div>
-                <div class="form-group">
-                    <label>Địa điểm:</label>
-                    <select id="filter-location">
-                        <option value="any">Tất cả</option>
-                        <option value="country">Cùng quốc gia</option>
-                        <option value="city">Cùng tỉnh/thành</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-		
-		<div class="container">
+    <div class="container">
         <header>
             <h1>WaitCall</h1>
             <p>Trò chuyện ngẫu nhiên với người lạ</p>
@@ -560,6 +434,7 @@
 			</div>
 			<button class="primary-btn end-btn hidden" id="end-btn">Kết thúc</button>
 		</div>
+
         
         <div class="content-container">
             <div class="video-container" id="video-container">
@@ -604,12 +479,12 @@
                     <button id="send-message"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
+			
         </div>
     </div>
-		
 
     <script>
-        // Cấu hình Firebase
+        // Khởi tạo Firebase
         const firebaseConfig = {
             authDomain: "waitcall-87f5e.firebaseapp.com",
             databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
@@ -618,215 +493,9 @@
             messagingSenderId: "535766267900",
             appId: "1:535766267900:web:572b04459493c157bd6479"
         };
-
         
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
         const database = firebase.database();
-
-		// Khởi tạo Firebase UI
-        const ui = new firebaseui.auth.AuthUI(firebase.auth());
-
-        // Cấu hình Firebase UI
-        const uiConfig = {
-            signInOptions: [
-                firebase.auth.GoogleAuthProvider.PROVIDER_ID,
-                firebase.auth.EmailAuthProvider.PROVIDER_ID
-            ],
-            callbacks: {
-                signInSuccessWithAuthResult: function(authResult) {
-                    // Xử lý sau khi đăng nhập thành công
-                    handleSignInSuccess(authResult.user);
-                    return false;
-                }
-            }
-        };
-
-        // Bắt đầu Firebase UI
-        ui.start('#firebaseui-auth-container', uiConfig);
-
-        // Xử lý sau khi đăng nhập thành công
-        async function handleSignInSuccess(user) {
-            // Kiểm tra xem người dùng đã có thông tin profile chưa
-            const userRef = database.ref(`users/${user.uid}`);
-            const snapshot = await userRef.once('value');
-            const userData = snapshot.val();
-
-            if (userData) {
-                // Đã có thông tin, hiển thị giao diện chính
-                showMainInterface(userData);
-            } else {
-                // Chưa có thông tin, hiển thị form profile
-                showProfileForm();
-            }
-        }
-
-        // API lấy danh sách quốc gia và thành phố
-        async function fetchCountries() {
-            try {
-                const response = await fetch('https://restcountries.com/v3.1/all');
-                const countries = await response.json();
-                const countrySelect = document.getElementById('country');
-                
-                countries.sort((a, b) => a.name.common.localeCompare(b.name.common));
-                
-                countries.forEach(country => {
-                    const option = document.createElement('option');
-                    option.value = country.cca2;
-                    option.textContent = country.name.common;
-                    countrySelect.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error fetching countries:', error);
-            }
-        }
-
-        // Lấy danh sách thành phố dựa trên quốc gia
-        async function fetchCities(countryCode) {
-            try {
-                // Sử dụng API của geonames.org (cần đăng ký tài khoản)
-                const response = await fetch(`http://api.geonames.org/searchJSON?country=${countryCode}&featureClass=P&maxRows=1000&username=YOUR_USERNAME`);
-                const data = await response.json();
-                const citySelect = document.getElementById('city');
-                
-                citySelect.innerHTML = '';
-                data.geonames.forEach(city => {
-                    const option = document.createElement('option');
-                    option.value = city.name;
-                    option.textContent = city.name;
-                    citySelect.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error fetching cities:', error);
-            }
-        }
-
-        // Lưu thông tin profile
-        async function saveProfile() {
-            const user = auth.currentUser;
-            if (!user) return;
-
-            const profileData = {
-                gender: document.getElementById('gender').value,
-                age: parseInt(document.getElementById('age').value),
-                country: document.getElementById('country').value,
-                city: document.getElementById('city').value
-            };
-
-            try {
-                await database.ref(`users/${user.uid}`).set(profileData);
-                showMainInterface(profileData);
-            } catch (error) {
-                console.error('Error saving profile:', error);
-                alert('Có lỗi xảy ra khi lưu thông tin. Vui lòng thử lại.');
-            }
-        }
-
-        // Tìm người phù hợp với bộ lọc
-        async function findMatch() {
-            const currentUser = auth.currentUser;
-            if (!currentUser) return null;
-
-            const filters = {
-                gender: document.getElementById('filter-gender').value,
-                ageMin: parseInt(document.getElementById('filter-age-min').value),
-                ageMax: parseInt(document.getElementById('filter-age-max').value),
-                location: document.getElementById('filter-location').value
-            };
-
-            const waitingRef = database.ref('waiting');
-            const snapshot = await waitingRef.once('value');
-            const waitingUsers = snapshot.val() || {};
-
-            // Lọc người dùng phù hợp
-            for (const [userId, userData] of Object.entries(waitingUsers)) {
-                if (userId === currentUser.uid) continue;
-
-                const userProfile = await database.ref(`users/${userId}`).once('value');
-                const profile = userProfile.val();
-
-                if (!profile) continue;
-
-                if (matchesFilters(profile, filters, currentUser)) {
-                    return userId;
-                }
-            }
-
-            return null;
-        }
-
-        // Kiểm tra người dùng có phù hợp với bộ lọc không
-        function matchesFilters(profile, filters, currentUser) {
-            // Kiểm tra giới tính
-            if (filters.gender !== 'any' && profile.gender !== filters.gender) {
-                return false;
-            }
-
-            // Kiểm tra độ tuổi
-            if (filters.ageMin && profile.age < filters.ageMin) {
-                return false;
-            }
-            if (filters.ageMax && profile.age > filters.ageMax) {
-                return false;
-            }
-
-            // Kiểm tra địa điểm
-            if (filters.location === 'country' && profile.country !== currentUser.country) {
-                return false;
-            }
-            if (filters.location === 'city' && profile.city !== currentUser.city) {
-                return false;
-            }
-
-            return true;
-        }
-
-        // Cập nhật startWaiting để sử dụng bộ lọc
-        async function startWaiting() {
-            if (isWaiting || isConnected) return;
-
-            isWaiting = true;
-            updateStatusUI('waiting');
-
-            // Khởi tạo media dựa trên mode
-            if (currentMode !== 'chat') {
-                const stream = await initMediaStream(currentMode);
-                if (!stream) {
-                    isWaiting = false;
-                    updateStatusUI('idle');
-                    return;
-                }
-            }
-
-            try {
-                // Tìm người phù hợp
-                const matchedUserId = await findMatch();
-
-                if (matchedUserId) {
-                    // Tìm thấy người phù hợp
-                    await waitingRef.child(matchedUserId).remove();
-                    await createRoomAndConnect(matchedUserId);
-                } else {
-                    // Không tìm thấy, thêm vào danh sách chờ
-                    await addToWaitingRoom();
-                }
-            } catch (error) {
-                console.error('Lỗi khi tìm kiếm đối tác:', error);
-                isWaiting = false;
-                updateStatusUI('idle');
-            }
-        }
-
-        // Event listeners
-        document.getElementById('save-profile').addEventListener('click', saveProfile);
-        document.getElementById('country').addEventListener('change', (e) => {
-            fetchCities(e.target.value);
-        });
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            auth.signOut();
-            location.reload();
-        });
-
         
         // Biến toàn cục
         let userId = null;
@@ -907,62 +576,30 @@
         
         // Khởi tạo PeerJS
         function initPeerJS() {
-			if (peer) {
-				peer.destroy();
-			}
-
-			const iceServers = [
-				{ urls: "stun:stun.relay.metered.ca:80" },
-				{ 
-					urls: "turn:global.relay.metered.ca:80",
-					username: "bc9a5141d9ba48ea77d5adbd",
-					credential: "i2JEAocGB62SuA/b" 
-				},
-				{ 
-					urls: "turn:global.relay.metered.ca:80?transport=tcp",
-					username: "bc9a5141d9ba48ea77d5adbd",
-					credential: "i2JEAocGB62SuA/b" 
-				},
-				{ 
-					urls: "turn:global.relay.metered.ca:443",
-					username: "bc9a5141d9ba48ea77d5adbd",
-					credential: "i2JEAocGB62SuA/b" 
-				},
-				{ 
-					urls: "turns:global.relay.metered.ca:443?transport=tcp",
-					username: "bc9a5141d9ba48ea77d5adbd",
-					credential: "i2JEAocGB62SuA/b" 
-				}
-			];
-
-			// Thêm cấu hình ICE servers vào PeerJS
-			peer = new Peer(userId, {
-				config: { 
-					iceServers: iceServers,
-					iceTransportPolicy: 'relay' // Ưu tiên sử dụng TURN
-				}
-			});
-
-			// Các phần còn lại giữ nguyên
-			peer.on('open', (id) => {
-				console.log('PeerJS ID đã mở:', id);
-			});
-
-			peer.on('connection', (conn) => {
-				console.log('Có kết nối dữ liệu đến từ:', conn.peer);
-				setupDataConnection(conn);
-			});
-
-			peer.on('call', (call) => {
-				console.log('Có cuộc gọi đến từ:', call.peer);
-				answerCall(call);
-			});
-
-			peer.on('error', (err) => {
-				console.error('Lỗi PeerJS:', err);
-			});
-		}
-
+            if (peer) {
+                peer.destroy();
+            }
+            
+            peer = new Peer(userId);
+            
+            peer.on('open', (id) => {
+                console.log('PeerJS ID đã mở:', id);
+            });
+            
+            peer.on('connection', (conn) => {
+                console.log('Có kết nối dữ liệu đến từ:', conn.peer);
+                setupDataConnection(conn);
+            });
+            
+            peer.on('call', (call) => {
+                console.log('Có cuộc gọi đến từ:', call.peer);
+                answerCall(call);
+            });
+            
+            peer.on('error', (err) => {
+                console.error('Lỗi PeerJS:', err);
+            });
+        }
         
         // Khởi tạo media stream
         async function initMediaStream(mode) {
@@ -1531,19 +1168,15 @@
 
         
         // Khởi tạo ứng dụng khi tải trang
-        window.onload = function() {
-            fetchCountries();
-			
-			window.onload = init;
-			// Các biến toàn cục bổ sung
-			let audioContext = null;
-			let localAnalyser = null;
-			let remoteAnalyser = null;
-			let localDataArray = null;
-			let remoteDataArray = null;
-			let audioVisualizationInterval = null;
-		};
-		
+        window.onload = init;
+		// Các biến toàn cục bổ sung
+		let audioContext = null;
+		let localAnalyser = null;
+		let remoteAnalyser = null;
+		let localDataArray = null;
+		let remoteDataArray = null;
+		let audioVisualizationInterval = null;
+
 		// DOM Elements bổ sung
 		const audioContainer = document.getElementById('audio-container');
 		const audioToggleAudioBtn = document.getElementById('audio-toggle-audio');
