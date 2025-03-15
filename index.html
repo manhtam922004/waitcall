@@ -576,30 +576,64 @@
         
         // Khởi tạo PeerJS
         function initPeerJS() {
-            if (peer) {
-                peer.destroy();
-            }
-            
-            peer = new Peer(userId);
-            
-            peer.on('open', (id) => {
-                console.log('PeerJS ID đã mở:', id);
-            });
-            
-            peer.on('connection', (conn) => {
-                console.log('Có kết nối dữ liệu đến từ:', conn.peer);
-                setupDataConnection(conn);
-            });
-            
-            peer.on('call', (call) => {
-                console.log('Có cuộc gọi đến từ:', call.peer);
-                answerCall(call);
-            });
-            
-            peer.on('error', (err) => {
-                console.error('Lỗi PeerJS:', err);
-            });
-        }
+			if (peer) {
+				peer.destroy();
+			}
+
+			const iceServers = [
+				{
+				urls: "stun:stun.relay.metered.ca:80",
+				},
+				{
+				urls: "turn:global.relay.metered.ca:80",
+				username: "bc9a5141d9ba48ea77d5adbd",
+				credential: "i2JEAocGB62SuA/b",
+				},
+				{
+				urls: "turn:global.relay.metered.ca:80?transport=tcp",
+				username: "bc9a5141d9ba48ea77d5adbd",
+				credential: "i2JEAocGB62SuA/b",
+				},
+				{
+				urls: "turn:global.relay.metered.ca:443",
+				username: "bc9a5141d9ba48ea77d5adbd",
+				credential: "i2JEAocGB62SuA/b",
+				},
+				{
+				urls: "turns:global.relay.metered.ca:443?transport=tcp",
+				username: "bc9a5141d9ba48ea77d5adbd",
+				credential: "i2JEAocGB62SuA/b",
+				}
+			];
+
+			// Thêm cấu hình ICE servers vào PeerJS
+			peer = new Peer(userId, {
+				config: { 
+					iceServers: iceServers,
+					iceTransportPolicy: 'relay' // Ưu tiên sử dụng TURN
+				}
+			});
+
+			// Các phần còn lại giữ nguyên
+			peer.on('open', (id) => {
+				console.log('PeerJS ID đã mở:', id);
+			});
+
+			peer.on('connection', (conn) => {
+				console.log('Có kết nối dữ liệu đến từ:', conn.peer);
+				setupDataConnection(conn);
+			});
+
+			peer.on('call', (call) => {
+				console.log('Có cuộc gọi đến từ:', call.peer);
+				answerCall(call);
+			});
+
+			peer.on('error', (err) => {
+				console.error('Lỗi PeerJS:', err);
+			});
+		}
+
         
         // Khởi tạo media stream
         async function initMediaStream(mode) {
