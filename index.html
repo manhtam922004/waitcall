@@ -1,726 +1,313 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phòng Chơi Game Trực Tuyến</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>English Vocabulary Flashcards</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {
-            background-color: #f5f5f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .game-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            margin-top: 50px;
-        }
-        .player-list {
-            height: 300px;
-            overflow-y: auto;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            padding: 10px;
-            margin-bottom: 20px;
-        }
-        .player-item {
-            padding: 10px;
-            margin-bottom: 5px;
-            border-radius: 5px;
-            background-color: #e9ecef;
-        }
-        .player-item.current-user {
-            background-color: #d1e7dd;
-        }
-        .player-item.online {
-            border-left: 4px solid #28a745;
-        }
-        .player-item.offline {
-            border-left: 4px solid #dc3545;
-        }
-        .chat-container {
-            height: 300px;
-            overflow-y: auto;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            padding: 10px;
-            margin-bottom: 20px;
-        }
-        .chat-message {
-            padding: 8px 12px;
-            margin-bottom: 8px;
-            border-radius: 18px;
-            max-width: 80%;
-            word-wrap: break-word;
-        }
-        .chat-message.own-message {
-            background-color: #cfe2ff;
-            margin-left: auto;
-            border-bottom-right-radius: 5px;
-        }
-        .chat-message.other-message {
-            background-color: #e9ecef;
-            margin-right: auto;
-            border-bottom-left-radius: 5px;
-        }
-        .score-board {
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        .game-board {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .game-cell {
-            height: 100px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
+        .flashcard {
+            min-height: 200px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        .game-cell:hover {
-            background-color: #e9ecef;
+        
+        .flashcard.flipped {
+            transform: rotateY(180deg);
         }
-        .game-cell.clicked {
-            pointer-events: none;
+        
+        .front, .back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
         }
-        .game-status {
-            text-align: center;
-            margin-bottom: 20px;
-            font-weight: bold;
-            height: 24px;
+        
+        .back {
+            transform: rotateY(180deg);
+            background-color: #f8f9fa;
         }
-        .hidden {
-            display: none;
+        
+        .progress-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        
+        .card-container {
+            min-height: 200px;
+        }
+
+        .btn-speak {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="game-container">
-            <h1 class="text-center mb-4">Phòng Chơi Game Trực Tuyến</h1>
-            
-            <!-- Đăng nhập -->
-            <div id="loginSection" class="mb-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Đăng nhập để bắt đầu</h5>
-                        <div class="mb-3">
-                            <label for="playerName" class="form-label">Tên người chơi</label>
-                            <input type="text" class="form-control" id="playerName" placeholder="Nhập tên của bạn">
-                        </div>
-                        <button id="loginBtn" class="btn btn-primary">Đăng nhập</button>
+    <div class="progress-container">
+        <div class="progress">
+            <div id="progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-12 text-center mb-4">
+                <h1>English Vocabulary Flashcards</h1>
+                <p>Bấm vào thẻ để xem nghĩa. Bạn đã học <span id="learned-count">0</span>/<span id="total-count">3000</span> từ.</p>
+            </div>
+        </div>
+
+        <div class="row justify-content-center mb-4">
+            <div class="col-md-6 card-container">
+                <div id="flashcard" class="card flashcard">
+                    <button id="speak-btn" class="btn btn-sm btn-outline-secondary btn-speak">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-volume-up" viewBox="0 0 16 16">
+                            <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
+                            <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/>
+                            <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
+                        </svg>
+                    </button>
+                    <div class="front p-4">
+                        <h2 id="word" class="display-4 text-center mb-3">Loading...</h2>
+                        <p id="phonetics" class="text-muted text-center">/fəˈnetɪks/</p>
+                    </div>
+                    <div class="back p-4">
+                        <h3 id="translation" class="mb-3">Đang tải...</h3>
+                        <p id="example" class="text-muted fst-italic"></p>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Khu vực chơi game -->
-            <div id="gameSection" class="hidden">
-                <div class="row">
-                    <div class="col-md-4">
-                        <h5>Người chơi trực tuyến</h5>
-                        <div class="player-list" id="playerList">
-                            <!-- Danh sách người chơi sẽ được thêm ở đây -->
-                        </div>
-                    </div>
-                    <div class="col-md-8">
-                        <div class="game-status" id="gameStatus"></div>
-                        <div class="score-board">
-                            <h5>Bảng điểm</h5>
-                            <div id="scoreBoard">
-                                <!-- Điểm số sẽ được thêm ở đây -->
-                            </div>
-                        </div>
+        <div class="row justify-content-center mb-5">
+            <div class="col-6 col-md-3 text-center">
+                <button id="skip-btn" class="btn btn-outline-danger w-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-skip-forward" viewBox="0 0 16 16">
+                        <path d="M15.5 3.5a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V8.752l-6.267 3.636c-.52.302-1.233-.043-1.233-.696v-2.94l-6.267 3.636C.713 12.69 0 12.345 0 11.692V4.308c0-.653.713-.998 1.233-.696L7.5 7.248v-2.94c0-.653.713-.998 1.233-.696L15 7.248V4a.5.5 0 0 1 .5-.5zM1 4.633v6.734L6.804 8 1 4.633zm7.5 0v6.734L14.304 8 8.5 4.633z"/>
+                    </svg> Bỏ qua
+                </button>
+            </div>
+            <div class="col-6 col-md-3 text-center">
+                <button id="mark-learned-btn" class="btn btn-outline-success w-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                    </svg> Đã học
+                </button>
+            </div>
+        </div>
 
-                        <div class="game-action mb-3">
-                            <button id="createGameBtn" class="btn btn-success">Tạo trò chơi mới</button>
-                            <button id="joinGameBtn" class="btn btn-primary">Tham gia trò chơi</button>
-                            <button id="spectateBtn" class="btn btn-secondary">Theo dõi</button>
-                        </div>
-                        
-                        <div class="game-board" id="gameBoard">
-                            <div class="game-cell" data-index="0"></div>
-                            <div class="game-cell" data-index="1"></div>
-                            <div class="game-cell" data-index="2"></div>
-                            <div class="game-cell" data-index="3"></div>
-                            <div class="game-cell" data-index="4"></div>
-                            <div class="game-cell" data-index="5"></div>
-                            <div class="game-cell" data-index="6"></div>
-                            <div class="game-cell" data-index="7"></div>
-                            <div class="game-cell" data-index="8"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mt-4">
-                    <div class="col-12">
-                        <h5>Trò chuyện</h5>
-                        <div class="chat-container" id="chatContainer">
-                            <!-- Tin nhắn chat sẽ được thêm ở đây -->
-                        </div>
-                        <div class="input-group">
-                            <input type="text" id="chatInput" class="form-control" placeholder="Nhập tin nhắn...">
-                            <button class="btn btn-primary" id="sendChatBtn">Gửi</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-3 text-center">
-                    <button id="logoutBtn" class="btn btn-danger">Đăng xuất</button>
-                </div>
+        <div class="row mb-5">
+            <div class="col-12 text-center">
+                <button id="reset-btn" class="btn btn-warning">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
+                    </svg> Reset tiến trình
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap & Firebase -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Cấu hình Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyBmNXcZQ8EMFxu-xTrBWmQBQMSCJzk9FPQ",
-            authDomain: "waitcall-87f5e.firebaseapp.com",
-            databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
-            projectId: "waitcall-87f5e",
-            storageBucket: "waitcall-87f5e.firebasestorage.app",
-            messagingSenderId: "535766267900",
-            appId: "1:535766267900:web:572b04459493c157bd6479"
-        };
-
-        // Khởi tạo Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
-        // Các biến toàn cục
-        let currentPlayer = null;
-        let currentPlayerId = null;
-        let currentGameId = null;
-        let isMyTurn = false;
-        let playerSymbol = '';
-
-        // DOM Elements
-        const loginSection = document.getElementById('loginSection');
-        const gameSection = document.getElementById('gameSection');
-        const playerNameInput = document.getElementById('playerName');
-        const loginBtn = document.getElementById('loginBtn');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const playerList = document.getElementById('playerList');
-        const chatContainer = document.getElementById('chatContainer');
-        const chatInput = document.getElementById('chatInput');
-        const sendChatBtn = document.getElementById('sendChatBtn');
-        const createGameBtn = document.getElementById('createGameBtn');
-        const joinGameBtn = document.getElementById('joinGameBtn');
-        const spectateBtn = document.getElementById('spectateBtn');
-        const gameBoard = document.getElementById('gameBoard');
-        const gameCells = document.querySelectorAll('.game-cell');
-        const gameStatus = document.getElementById('gameStatus');
-        const scoreBoard = document.getElementById('scoreBoard');
-
-        // Bắt sự kiện khi trang được tải
-        window.onload = function() {
-            checkLocalStorage();
-            setupEventListeners();
-        };
-
-        // Kiểm tra xem người dùng đã đăng nhập chưa
-        function checkLocalStorage() {
-            const savedPlayer = localStorage.getItem('currentPlayer');
-            const savedPlayerId = localStorage.getItem('currentPlayerId');
+        // 3000 từ thông dụng tiếng Anh (hiển thị một phần để demo)
+        const englishWords = [
+            { word: "the", translation: "cái, những, các", phonetics: "/ðə/", example: "The book is on the table." },
+            { word: "be", translation: "là, thì, ở", phonetics: "/biː/", example: "I want to be happy." },
+            { word: "to", translation: "đến, tới, để", phonetics: "/tuː/", example: "I went to school." },
+            { word: "of", translation: "của", phonetics: "/əv/", example: "The book of John." },
+            { word: "and", translation: "và", phonetics: "/ænd/", example: "Coffee and tea." },
+            { word: "a", translation: "một", phonetics: "/eɪ/", example: "A book." },
+            { word: "in", translation: "trong", phonetics: "/ɪn/", example: "The cat is in the box." },
+            { word: "that", translation: "điều đó, rằng", phonetics: "/ðæt/", example: "I know that you're right." },
+            { word: "have", translation: "có", phonetics: "/hæv/", example: "I have a dog." },
+            { word: "I", translation: "tôi", phonetics: "/aɪ/", example: "I am happy." },
+            { word: "it", translation: "nó", phonetics: "/ɪt/", example: "It is raining." },
+            { word: "for", translation: "cho, để", phonetics: "/fɔːr/", example: "This is for you." },
+            { word: "not", translation: "không", phonetics: "/nɒt/", example: "I am not ready." },
+            { word: "on", translation: "trên", phonetics: "/ɒn/", example: "The book is on the table." },
+            { word: "with", translation: "với", phonetics: "/wɪð/", example: "I'm with my friend." },
+            { word: "he", translation: "anh ấy", phonetics: "/hiː/", example: "He is tall." },
+            { word: "as", translation: "như", phonetics: "/æz/", example: "Bright as the sun." },
+            { word: "you", translation: "bạn", phonetics: "/juː/", example: "You are smart." },
+            { word: "do", translation: "làm", phonetics: "/duː/", example: "What do you do?" },
+            { word: "at", translation: "tại", phonetics: "/æt/", example: "I'll meet you at the station." },
+            { word: "this", translation: "cái này", phonetics: "/ðɪs/", example: "This is my book." },
+            { word: "but", translation: "nhưng", phonetics: "/bʌt/", example: "I wanted to go, but I couldn't." },
+            { word: "his", translation: "của anh ấy", phonetics: "/hɪz/", example: "This is his book." },
+            { word: "by", translation: "bởi", phonetics: "/baɪ/", example: "The book was written by John." },
+            { word: "from", translation: "từ", phonetics: "/frəm/", example: "I'm from Vietnam." },
+            { word: "they", translation: "họ", phonetics: "/ðeɪ/", example: "They are coming." },
+            { word: "we", translation: "chúng tôi", phonetics: "/wiː/", example: "We are friends." },
+            { word: "say", translation: "nói", phonetics: "/seɪ/", example: "What did you say?" },
+            { word: "her", translation: "cô ấy", phonetics: "/hɜːr/", example: "I gave her a book." },
+            { word: "she", translation: "cô ấy", phonetics: "/ʃiː/", example: "She is beautiful." },
             
-            if (savedPlayer && savedPlayerId) {
-                currentPlayer = savedPlayer;
-                currentPlayerId = savedPlayerId;
-                showGameSection();
-                updatePlayerStatus(true);
-                loadPlayers();
-                loadMessages();
-                loadGames();
+            // Bạn cần thêm đủ 3000 từ ở đây
+            // Thêm từ vựng khác...
+        ];
+
+        // Mở rộng danh sách từ vựng bằng cách thêm từ giả tạo cho đủ 3000 từ (chỉ cho mục đích demo)
+        for(let i = englishWords.length; i < 3000; i++) {
+            englishWords.push({
+                word: `word${i}`,
+                translation: `Nghĩa của từ ${i}`,
+                phonetics: `/fəˈnetɪks ${i}/`,
+                example: `This is an example sentence for word${i}.`
+            });
+        }
+
+        // Biến và hàm chính
+        let currentWordIndex = 0;
+        let learnedWords = new Set();
+        const flashcard = document.getElementById('flashcard');
+        const wordElement = document.getElementById('word');
+        const phoneticsElement = document.getElementById('phonetics');
+        const translationElement = document.getElementById('translation');
+        const exampleElement = document.getElementById('example');
+        const speakBtn = document.getElementById('speak-btn');
+        const skipBtn = document.getElementById('skip-btn');
+        const markLearnedBtn = document.getElementById('mark-learned-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const learnedCountElement = document.getElementById('learned-count');
+        const totalCountElement = document.getElementById('total-count');
+
+        // Khởi tạo ứng dụng
+        function initApp() {
+            totalCountElement.textContent = englishWords.length;
+            loadProgress();
+            shuffleWords();
+            showCurrentWord();
+            updateProgressBar();
+
+            // Gắn các event listeners
+            flashcard.addEventListener('click', function(e) {
+                if (e.target !== speakBtn && !e.target.closest('#speak-btn')) {
+                    flashcard.classList.toggle('flipped');
+                }
+            });
+
+            speakBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                speakCurrentWord();
+            });
+
+            skipBtn.addEventListener('click', nextWord);
+
+            markLearnedBtn.addEventListener('click', function() {
+                markCurrentWordAsLearned();
+                nextWord();
+            });
+
+            resetBtn.addEventListener('click', resetProgress);
+        }
+
+        // Lấy từ vựng hiện tại
+        function getCurrentWord() {
+            return englishWords[currentWordIndex];
+        }
+
+        // Hiển thị từ vựng hiện tại
+        function showCurrentWord() {
+            const currentWord = getCurrentWord();
+            wordElement.textContent = currentWord.word;
+            phoneticsElement.textContent = currentWord.phonetics;
+            translationElement.textContent = currentWord.translation;
+            exampleElement.textContent = currentWord.example;
+            
+            // Reset flashcard to front side
+            flashcard.classList.remove('flipped');
+        }
+
+        // Đọc từ vựng hiện tại
+        function speakCurrentWord() {
+            const currentWord = getCurrentWord();
+            const utterance = new SpeechSynthesisUtterance(currentWord.word);
+            utterance.lang = 'en-US';
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Đánh dấu từ vựng hiện tại đã học
+        function markCurrentWordAsLearned() {
+            const currentWord = getCurrentWord();
+            learnedWords.add(currentWord.word);
+            saveProgress();
+            updateProgressBar();
+        }
+
+        // Chuyển đến từ vựng tiếp theo
+        function nextWord() {
+            currentWordIndex = (currentWordIndex + 1) % englishWords.length;
+            showCurrentWord();
+        }
+
+        // Xáo trộn danh sách từ vựng
+        function shuffleWords() {
+            for (let i = englishWords.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [englishWords[i], englishWords[j]] = [englishWords[j], englishWords[i]];
             }
         }
 
-        // Thiết lập các event listener
-        function setupEventListeners() {
-            // Đăng nhập
-            loginBtn.addEventListener('click', login);
-            
-            // Đăng xuất
-            logoutBtn.addEventListener('click', logout);
-            
-            // Gửi tin nhắn
-            sendChatBtn.addEventListener('click', sendMessage);
-            chatInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    sendMessage();
-                }
-            });
-            
-            // Tạo và tham gia trò chơi
-            createGameBtn.addEventListener('click', createGame);
-            joinGameBtn.addEventListener('click', joinGame);
-            spectateBtn.addEventListener('click', spectateGame);
-            
-            // Sự kiện click trên bảng trò chơi
-            gameCells.forEach(cell => {
-                cell.addEventListener('click', () => {
-                    if (isMyTurn && !cell.classList.contains('clicked')) {
-                        const index = cell.getAttribute('data-index');
-                        makeMove(index);
-                    }
-                });
-            });
-
-            // Xử lý sự kiện khi người dùng đóng tab/trình duyệt
-            window.addEventListener('beforeunload', () => {
-                if (currentPlayerId) {
-                    updatePlayerStatus(false);
-                }
-            });
+        // Cập nhật thanh tiến trình
+        function updateProgressBar() {
+            const progress = (learnedWords.size / englishWords.length) * 100;
+            progressBar.style.width = `${progress}%`;
+            learnedCountElement.textContent = learnedWords.size;
         }
 
-        // Đăng nhập
-        function login() {
-            const playerName = playerNameInput.value.trim();
-            
-            if (playerName) {
-                const playerId = generatePlayerId();
-                currentPlayer = playerName;
-                currentPlayerId = playerId;
-                
-                // Lưu vào localStorage
-                localStorage.setItem('currentPlayer', playerName);
-                localStorage.setItem('currentPlayerId', playerId);
-                
-                // Thêm người chơi vào database
-                database.ref('players/' + playerId).set({
-                    name: playerName,
-                    online: true,
-                    score: 0,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
-                
-                showGameSection();
-                loadPlayers();
-                loadMessages();
-                loadGames();
-            } else {
-                alert('Vui lòng nhập tên người chơi!');
+        // Lưu tiến trình học vào localStorage
+        function saveProgress() {
+            localStorage.setItem('learnedWords', JSON.stringify([...learnedWords]));
+        }
+
+        // Tải tiến trình học từ localStorage
+        function loadProgress() {
+            const savedLearnedWords = localStorage.getItem('learnedWords');
+            if (savedLearnedWords) {
+                learnedWords = new Set(JSON.parse(savedLearnedWords));
             }
         }
 
-        // Đăng xuất
-        function logout() {
-            if (currentPlayerId) {
-                updatePlayerStatus(false);
-                
-                // Xóa khỏi localStorage
-                localStorage.removeItem('currentPlayer');
-                localStorage.removeItem('currentPlayerId');
-                
-                // Reset biến toàn cục
-                currentPlayer = null;
-                currentPlayerId = null;
-                currentGameId = null;
-                
-                // Hiển thị lại form đăng nhập
-                loginSection.classList.remove('hidden');
-                gameSection.classList.add('hidden');
+        // Reset tiến trình học
+        function resetProgress() {
+            if (confirm("Bạn có chắc muốn xóa toàn bộ tiến trình học không?")) {
+                learnedWords.clear();
+                saveProgress();
+                updateProgressBar();
+                shuffleWords();
+                currentWordIndex = 0;
+                showCurrentWord();
             }
         }
 
-        // Tạo ID người chơi
-        function generatePlayerId() {
-            return 'player_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        // Xác định ngôn ngữ dựa trên IP (giả lập - trong thực tế bạn cần API xác định quốc gia)
+        function detectLanguage() {
+            // Trong thực tế, bạn sẽ sử dụng API để xác định quốc gia dựa trên IP
+            // Ví dụ: fetch('https://api.ipgeolocation.io/ipgeo')
+            // Cho ví dụ này, giả định người dùng ở Việt Nam
+            return 'vi';
         }
 
-        // Hiển thị phần chơi game
-        function showGameSection() {
-            loginSection.classList.add('hidden');
-            gameSection.classList.remove('hidden');
-        }
-
-        // Cập nhật trạng thái người chơi (online/offline)
-        function updatePlayerStatus(isOnline) {
-            if (currentPlayerId) {
-                database.ref('players/' + currentPlayerId + '/online').set(isOnline);
-                
-                // Thiết lập trạng thái disconnect handler
-                if (isOnline) {
-                    database.ref('players/' + currentPlayerId + '/online').onDisconnect().set(false);
-                }
-            }
-        }
-
-        // Tải danh sách người chơi
-        function loadPlayers() {
-            database.ref('players').on('value', snapshot => {
-                const players = snapshot.val() || {};
-                renderPlayerList(players);
-            });
-        }
-
-        // Hiển thị danh sách người chơi
-        function renderPlayerList(players) {
-            playerList.innerHTML = '';
-            
-            Object.keys(players).forEach(playerId => {
-                const player = players[playerId];
-                const playerElement = document.createElement('div');
-                playerElement.classList.add('player-item');
-                
-                // Thêm class dựa trên trạng thái
-                if (player.online) {
-                    playerElement.classList.add('online');
-                } else {
-                    playerElement.classList.add('offline');
-                }
-                
-                // Đánh dấu người chơi hiện tại
-                if (playerId === currentPlayerId) {
-                    playerElement.classList.add('current-user');
-                }
-                
-                playerElement.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>${player.name} ${playerId === currentPlayerId ? '(Bạn)' : ''}</span>
-                        <span class="badge ${player.online ? 'bg-success' : 'bg-danger'}">
-                            ${player.online ? 'Online' : 'Offline'}
-                        </span>
-                    </div>
-                    <div>Điểm: ${player.score || 0}</div>
-                `;
-                
-                playerList.appendChild(playerElement);
-            });
-        }
-
-        // Gửi tin nhắn
-        function sendMessage() {
-            const message = chatInput.value.trim();
-            
-            if (message && currentPlayer) {
-                database.ref('messages').push({
-                    playerId: currentPlayerId,
-                    playerName: currentPlayer,
-                    message: message,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
-                
-                chatInput.value = '';
-            }
-        }
-
-        // Tải tin nhắn
-        function loadMessages() {
-            database.ref('messages').orderByChild('timestamp').limitToLast(50).on('value', snapshot => {
-                const messages = snapshot.val() || {};
-                renderMessages(messages);
-            });
-        }
-
-        // Hiển thị tin nhắn
-        function renderMessages(messages) {
-            chatContainer.innerHTML = '';
-            
-            Object.keys(messages).forEach(messageId => {
-                const message = messages[messageId];
-                const messageElement = document.createElement('div');
-                
-                // Xác định loại tin nhắn (của mình hay người khác)
-                if (message.playerId === currentPlayerId) {
-                    messageElement.classList.add('chat-message', 'own-message');
-                } else {
-                    messageElement.classList.add('chat-message', 'other-message');
-                }
-                
-                messageElement.innerHTML = `
-                    <div>
-                        <strong>${message.playerName}:</strong>
-                        <span>${message.message}</span>
-                    </div>
-                `;
-                
-                chatContainer.appendChild(messageElement);
-            });
-            
-            // Cuộn xuống tin nhắn mới nhất
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        // Tạo trò chơi mới
-        function createGame() {
-            const gameId = 'game_' + Date.now();
-            
-            database.ref('games/' + gameId).set({
-                creator: {
-                    id: currentPlayerId,
-                    name: currentPlayer
-                },
-                status: 'waiting',
-                board: ['', '', '', '', '', '', '', '', ''],
-                currentTurn: currentPlayerId,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
-            
-            currentGameId = gameId;
-            playerSymbol = 'X';
-            isMyTurn = true;
-            
-            joinCurrentGame();
-        }
-
-        // Tham gia trò chơi đang chờ
-        function joinGame() {
-            database.ref('games').orderByChild('status').equalTo('waiting').once('value', snapshot => {
-                const games = snapshot.val();
-                
-                if (games) {
-                    const gameIds = Object.keys(games);
-                    const randomGame = games[gameIds[0]];
-                    
-                    // Kiểm tra xem có phải mình tạo không
-                    if (randomGame.creator.id !== currentPlayerId) {
-                        currentGameId = gameIds[0];
-                        playerSymbol = 'O';
-                        
-                        // Cập nhật trò chơi
-                        database.ref('games/' + currentGameId).update({
-                            opponent: {
-                                id: currentPlayerId,
-                                name: currentPlayer
-                            },
-                            status: 'playing'
-                        });
-                        
-                        isMyTurn = randomGame.currentTurn === currentPlayerId;
-                        joinCurrentGame();
-                    } else {
-                        alert('Không thể tìm thấy trò chơi phù hợp để tham gia!');
-                    }
-                } else {
-                    alert('Không có trò chơi nào đang chờ. Hãy tạo một trò chơi mới!');
-                }
-            });
-        }
-
-        // Xem trò chơi
-        function spectateGame() {
-            database.ref('games').orderByChild('status').equalTo('playing').once('value', snapshot => {
-                const games = snapshot.val();
-                
-                if (games) {
-                    const gameIds = Object.keys(games);
-                    currentGameId = gameIds[0];
-                    isMyTurn = false;
-                    playerSymbol = '';
-                    
-                    joinCurrentGame(true);
-                } else {
-                    alert('Không có trò chơi nào đang diễn ra để theo dõi!');
-                }
-            });
-        }
-
-        // Tham gia trò chơi hiện tại
-        function joinCurrentGame(isSpectator = false) {
-            if (!currentGameId) return;
-            
-            // Theo dõi thay đổi trong trò chơi
-            database.ref('games/' + currentGameId).on('value', snapshot => {
-                const game = snapshot.val();
-                
-                if (game) {
-                    renderGame(game, isSpectator);
-                }
-            });
-        }
-
-        // Tải danh sách trò chơi
-        function loadGames() {
-            database.ref('games').orderByChild('timestamp').limitToLast(5).on('value', snapshot => {
-                const games = snapshot.val() || {};
-                updateScoreBoard(games);
-            });
-        }
-
-        // Cập nhật bảng điểm
-        function updateScoreBoard(games) {
-            scoreBoard.innerHTML = '';
-            
-            Object.keys(games).forEach(gameId => {
-                const game = games[gameId];
-                
-                if (game.status === 'completed') {
-                    const scoreElement = document.createElement('div');
-                    scoreElement.classList.add('mb-2');
-                    
-                    scoreElement.innerHTML = `
-                        <div class="d-flex justify-content-between">
-                            <span>${game.creator.name}</span>
-                            <span>vs</span>
-                            <span>${game.opponent ? game.opponent.name : 'N/A'}</span>
-                        </div>
-                        <div class="text-muted small">
-                            ${game.winner ? 'Người thắng: ' + (game.winner.name || 'Hòa') : 'Đang chơi'}
-                        </div>
-                    `;
-                    
-                    scoreBoard.appendChild(scoreElement);
-                }
-            });
-            
-            if (scoreBoard.innerHTML === '') {
-                scoreBoard.innerHTML = '<div class="text-muted">Chưa có trò chơi nào hoàn thành.</div>';
-            }
-        }
-
-        // Hiển thị trò chơi
-        function renderGame(game, isSpectator) {
-            // Hiển thị trạng thái trò chơi
-            if (game.status === 'waiting') {
-                gameStatus.textContent = 'Đang chờ người chơi khác tham gia...';
-            } else if (game.status === 'playing') {
-                if (!isSpectator) {
-                    if (game.currentTurn === currentPlayerId) {
-                        gameStatus.textContent = 'Đến lượt của bạn!';
-                        isMyTurn = true;
-                    } else {
-                        gameStatus.textContent = 'Đến lượt đối thủ...';
-                        isMyTurn = false;
-                    }
-                } else {
-                    const currentPlayerName = game.currentTurn === game.creator.id ? 
-                        game.creator.name : (game.opponent ? game.opponent.name : 'Người chơi khác');
-                    gameStatus.textContent = `Đến lượt của ${currentPlayerName}`;
-                }
-            } else if (game.status === 'completed') {
-                if (game.winner) {
-                    if (!isSpectator) {
-                        if (game.winner.id === currentPlayerId) {
-                            gameStatus.textContent = 'Bạn thắng!';
-                        } else {
-                            gameStatus.textContent = 'Bạn thua!';
-                        }
-                    } else {
-                        gameStatus.textContent = `${game.winner.name} thắng!`;
-                    }
-                } else {
-                    gameStatus.textContent = 'Trò chơi hòa!';
-                }
-            }
-            
-            // Cập nhật bảng trò chơi
-            for (let i = 0; i < 9; i++) {
-                const cell = gameCells[i];
-                const value = game.board[i];
-                
-                if (value) {
-                    cell.textContent = value;
-                    cell.classList.add('clicked');
-                } else {
-                    cell.textContent = '';
-                    cell.classList.remove('clicked');
-                }
-            }
-        }
-
-        // Thực hiện nước đi
-        function makeMove(index) {
-            if (!currentGameId || !isMyTurn) return;
-            
-            // Lấy trạng thái hiện tại của trò chơi
-            database.ref('games/' + currentGameId).once('value', snapshot => {
-                const game = snapshot.val();
-                
-                if (game && game.status === 'playing' && game.currentTurn === currentPlayerId) {
-                    const board = [...game.board];
-                    
-                    // Kiểm tra xem ô đã được đánh chưa
-                    if (board[index] === '') {
-                        board[index] = playerSymbol;
-                        
-                        // Cập nhật lượt chơi tiếp theo
-                        const nextTurn = game.creator.id === currentPlayerId ? 
-                            (game.opponent ? game.opponent.id : '') : game.creator.id;
-                        
-                        // Kiểm tra trạng thái trò chơi
-                        const gameResult = checkGameStatus(board);
-                        
-                        if (gameResult.status === 'win') {
-                            // Cập nhật người thắng
-                            database.ref('games/' + currentGameId).update({
-                                board: board,
-                                status: 'completed',
-                                winner: {
-                                    id: currentPlayerId,
-                                    name: currentPlayer
-                                }
-                            });
-                            
-                            // Cập nhật điểm
-                            database.ref('players/' + currentPlayerId + '/score').transaction(score => {
-                                return (score || 0) + 1;
-                            });
-                        } else if (gameResult.status === 'draw') {
-                            // Cập nhật kết quả hòa
-                            database.ref('games/' + currentGameId).update({
-                                board: board,
-                                status: 'completed',
-                                winner: null
-                            });
-                        } else {
-                            // Cập nhật trò chơi tiếp tục
-                            database.ref('games/' + currentGameId).update({
-                                board: board,
-                                currentTurn: nextTurn
-                            });
-                        }
-                        
-                        isMyTurn = false;
-                    }
-                }
-            });
-        }
-
-        // Kiểm tra trạng thái trò chơi
-        function checkGameStatus(board) {
-            // Các trường hợp thắng
-            const winPatterns = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Hàng ngang
-                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Hàng dọc
-                [0, 4, 8], [2, 4, 6]             // Đường chéo
-            ];
-            
-            // Kiểm tra thắng
-            for (const pattern of winPatterns) {
-                const [a, b, c] = pattern;
-                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-                    return { status: 'win', pattern };
-                }
-            }
-            
-            // Kiểm tra hòa
-            if (!board.includes('')) {
-                return { status: 'draw' };
-            }
-            
-            // Trò chơi tiếp tục
-            return { status: 'continue' };
-        }
+        // Khởi chạy ứng dụng khi trang tải xong
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
