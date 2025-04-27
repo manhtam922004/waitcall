@@ -344,7 +344,6 @@
             peer.on('error', (err) => {
                 console.error('Peer error:', err);
                 if (err.type === 'peer-unavailable') {
-                    // If the peer we're trying to connect to is unavailable, try another match
                     if (isConnecting) {
                         setTimeout(() => findMatch(), 1000);
                     }
@@ -420,7 +419,6 @@
             currentCall = call;
             updateStatus('connected');
             
-            // Remove from waiting list if present
             if (waitingId) {
                 removeFromWaitingList();
             }
@@ -433,7 +431,6 @@
                 console.log('Call ended');
                 endCall();
                 
-                // Auto-connect to next person if enabled
                 if (autoConnect) {
                     setTimeout(() => {
                         startCall();
@@ -511,29 +508,24 @@
                 return;
             }
             
-            // Add user to waiting list
             addToWaitingList()
                 .then(() => {
-                    // Check for available matches
                     database.ref('waiting').once('value')
                         .then((snapshot) => {
                             const waitingUsers = snapshot.val() || {};
                             const waitingUserIds = Object.keys(waitingUsers).filter(id => id !== waitingId);
                             
                             if (waitingUserIds.length > 0) {
-                                // Select a random user to call
-                                const randomUserId = waitingUserIds[Math.floor(Math.random() * waitingUserIds.length)];
-                                const peerId = waitingUsers[randomUserId].peerId;
+                                waitingUserIds.sort();
+                                const oldestUserId = waitingUserIds[0];
+                                const peerId = waitingUsers[oldestUserId].peerId;
                                 
-                                // Remove both users from waiting list
-                                database.ref(`waiting/${randomUserId}`).remove();
+                                database.ref(`waiting/${oldestUserId}`).remove();
                                 removeFromWaitingList();
                                 
-                                // Make the call
                                 const call = peer.call(peerId, localStream);
                                 handleCall(call);
                             } else {
-                                // No match yet, keep waiting
                                 connectionInfo.textContent = 'Waiting for someone to join...';
                             }
                         })
@@ -573,13 +565,11 @@
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
                 
-                // Remove when disconnected
                 userRef.onDisconnect().remove();
             } else {
                 userRef.remove();
             }
             
-            // Listen for online users count
             database.ref('online').on('value', (snapshot) => {
                 const count = snapshot.numChildren();
                 onlineCountElement.textContent = `${count} users online`;
@@ -632,7 +622,6 @@
         window.addEventListener('load', () => {
             initializePeer();
             
-            // Clean up when the window is closed
             window.addEventListener('beforeunload', () => {
                 if (currentCall) {
                     currentCall.close();
@@ -651,12 +640,14 @@
             });
         });
 
-        // Listen for waiting list changes to connect users
+        // Listen for waiting list changes with a random delay
         database.ref('waiting').on('child_added', (snapshot) => {
             if (isConnecting && !currentCall) {
-                findMatch();
+                setTimeout(() => {
+                    findMatch();
+                }, Math.random() * 1000);
             }
         });
     </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'936aed7f0f906771',t:'MTc0NTcyMTMzOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
