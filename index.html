@@ -8,12 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
-    
-	<!-- Firebase UI -->
-    <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
-    <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
-
-	<style>
+    <style>
         * {
             margin: 0;
             padding: 0;
@@ -408,102 +403,10 @@
 			font-size: 14px;
 			color: #2c3e50;
 		}
-		.auth-container {
-            max-width: 500px;
-            margin: 50px auto;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .profile-form {
-            max-width: 500px;
-            margin: 20px auto;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .filter-options {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .filter-group {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        #user-info {
-            margin: 10px 0;
-            padding: 10px;
-            background: #ecf0f1;
-            border-radius: 5px;
-        }
-
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
-
-	<!-- Phần xác thực -->
-    <div id="auth-container" class="auth-container">
-        <div id="firebaseui-auth-container"></div>
-    </div>
-
-    <!-- Form thông tin cá nhân -->
-    <div id="profile-form" class="profile-form hidden">
-        <h2>Thông tin cá nhân</h2>
-        <div class="form-group">
-            <label>Giới tính:</label>
-            <select id="gender">
-                <option value="male">Nam</option>
-                <option value="female">Nữ</option>
-                <option value="other">Khác</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>Tuổi:</label>
-            <input type="number" id="age" min="18" max="100">
-        </div>
-        <div class="form-group">
-            <label>Quốc gia:</label>
-            <select id="country"></select>
-        </div>
-        <div class="form-group">
-            <label>Tỉnh/Thành phố:</label>
-            <select id="city"></select>
-        </div>
-        <button id="save-profile" class="primary-btn">Lưu thông tin</button>
-    </div>
-
-    <!-- Phần chính -->
-	<div id="main-container" class="container hidden">
-		<!-- Giữ nguyên header cũ và thêm mới -->
-        <header>
-            <h1>WaitCall</h1>
-            <p>Trò chuyện ngẫu nhiên với người lạ</p>
-            <div id="user-info"></div>
-            <button id="logout-btn" class="primary-btn">Đăng xuất</button>
-        </header>
-			
-
     <div class="container">
         <header>
             <h1>WaitCall</h1>
@@ -673,30 +576,64 @@
         
         // Khởi tạo PeerJS
         function initPeerJS() {
-            if (peer) {
-                peer.destroy();
-            }
-            
-            peer = new Peer(userId);
-            
-            peer.on('open', (id) => {
-                console.log('PeerJS ID đã mở:', id);
-            });
-            
-            peer.on('connection', (conn) => {
-                console.log('Có kết nối dữ liệu đến từ:', conn.peer);
-                setupDataConnection(conn);
-            });
-            
-            peer.on('call', (call) => {
-                console.log('Có cuộc gọi đến từ:', call.peer);
-                answerCall(call);
-            });
-            
-            peer.on('error', (err) => {
-                console.error('Lỗi PeerJS:', err);
-            });
-        }
+			if (peer) {
+				peer.destroy();
+			}
+
+			const iceServers = [
+				{
+				urls: "stun:stun.relay.metered.ca:80",
+				},
+				{
+				urls: "turn:global.relay.metered.ca:80",
+				username: "995ca68bcff47b2746260963",
+				credential: "ivvsUJ1C/Sbiko2W",
+				},
+				{
+				urls: "turn:global.relay.metered.ca:80?transport=tcp",
+				username: "995ca68bcff47b2746260963",
+				credential: "ivvsUJ1C/Sbiko2W",
+				},
+				{
+				urls: "turn:global.relay.metered.ca:443",
+				username: "995ca68bcff47b2746260963",
+				credential: "ivvsUJ1C/Sbiko2W",
+				},
+				{
+				urls: "turns:global.relay.metered.ca:443?transport=tcp",
+				username: "995ca68bcff47b2746260963",
+				credential: "ivvsUJ1C/Sbiko2W",
+				}
+			];
+
+			// Thêm cấu hình ICE servers vào PeerJS
+			peer = new Peer(userId, {
+				config: { 
+					iceServers: iceServers,
+					iceTransportPolicy: 'relay' // Ưu tiên sử dụng TURN
+				}
+			});
+
+			// Các phần còn lại giữ nguyên
+			peer.on('open', (id) => {
+				console.log('PeerJS ID đã mở:', id);
+			});
+
+			peer.on('connection', (conn) => {
+				console.log('Có kết nối dữ liệu đến từ:', conn.peer);
+				setupDataConnection(conn);
+			});
+
+			peer.on('call', (call) => {
+				console.log('Có cuộc gọi đến từ:', call.peer);
+				answerCall(call);
+			});
+
+			peer.on('error', (err) => {
+				console.error('Lỗi PeerJS:', err);
+			});
+		}
+
         
         // Khởi tạo media stream
         async function initMediaStream(mode) {
