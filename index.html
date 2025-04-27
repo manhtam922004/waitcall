@@ -484,14 +484,16 @@
     </div>
 
     <script>
-        // Khởi tạo Firebase
+        // Khởi tạo Firebase với cấu hình mới
         const firebaseConfig = {
+            apiKey: "AIzaSyBvxl_a9NurzYLnAfuYM1sHnfuCc03gjoA",
             authDomain: "waitcall-87f5e.firebaseapp.com",
-            databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "waitcall-87f5e",
             storageBucket: "waitcall-87f5e.firebasestorage.app",
             messagingSenderId: "535766267900",
-            appId: "1:535766267900:web:572b04459493c157bd6479"
+            appId: "1:535766267900:web:572b04459493c157bd6479",
+            measurementId: "G-FXR2M8TER7"
         };
         
         firebase.initializeApp(firebaseConfig);
@@ -510,7 +512,7 @@
         let isConnected = false;
         let isVideoEnabled = true;
         let isAudioEnabled = true;
-		let autoReconnect = false;
+        let autoReconnect = false;
 
         
         // DOM Elements
@@ -561,11 +563,11 @@
                     });
                 });
                 
-				  // Thêm sự kiện cho công tắc
-				document.getElementById('auto-reconnect-switch').addEventListener('change', function(e) {
-					autoReconnect = e.target.checked;
-				});
-				
+                // Thêm sự kiện cho công tắc
+                document.getElementById('auto-reconnect-switch').addEventListener('change', function(e) {
+                    autoReconnect = e.target.checked;
+                });
+                
                 // Xử lý khi đóng trang
                 window.addEventListener('beforeunload', cleanup);
             } catch (error) {
@@ -574,13 +576,47 @@
             }
         }
         
-        // Khởi tạo PeerJS
+        // Khởi tạo PeerJS với server 0.peerjs.com
         function initPeerJS() {
             if (peer) {
                 peer.destroy();
             }
             
-            peer = new Peer(userId);
+            const iceServers = [
+                {
+                    urls: "stun:stun.relay.metered.ca:80",
+                },
+                {
+                    urls: "turn:global.relay.metered.ca:80",
+                    username: "995ca68bcff47b2746260963",
+                    credential: "ivvsUJ1C/Sbiko2W",
+                },
+                {
+                    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+                    username: "995ca68bcff47b2746260963",
+                    credential: "ivvsUJ1C/Sbiko2W",
+                },
+                {
+                    urls: "turn:global.relay.metered.ca:443",
+                    username: "995ca68bcff47b2746260963",
+                    credential: "ivvsUJ1C/Sbiko2W",
+                },
+                {
+                    urls: "turns:global.relay.metered.ca:443?transport=tcp",
+                    username: "995ca68bcff47b2746260963",
+                    credential: "ivvsUJ1C/Sbiko2W",
+                }
+            ];
+            
+            peer = new Peer(userId, {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                config: { 
+                    iceServers: iceServers,
+                    iceTransportPolicy: 'relay'
+                }
+            });
             
             peer.on('open', (id) => {
                 console.log('PeerJS ID đã mở:', id);
@@ -769,42 +805,39 @@
         
         // Kết nối với đối tác
         async function connectWithPartner(partnerId) {
-			try {
-				isWaiting = false;
-				isConnected = true;
-				updateStatusUI('connected');
-				
-				// Thiết lập kết nối dữ liệu - khởi tạo trước
-				initiateDataConnection(partnerId);
-				
-				// Đợi một chút để đảm bảo kết nối dữ liệu được thiết lập
-				await new Promise(resolve => setTimeout(resolve, 1000));
-				
-				// Nếu là chế độ video hoặc audio, bắt đầu cuộc gọi
-				if (currentMode !== 'chat') {
-					initiateMediaConnection(partnerId);
-					
-					// Nếu là chế độ audio, thiết lập audio analyzer sau khi kết nối
-					if (currentMode === 'audio') {
-						// Đợi media connection được thiết lập
-						setTimeout(() => {
-							setupAudioAnalyzer();
-						}, 2000);
-					}
-				}
-				
-				// Thiết lập các event listener cho audio controls
-				if (currentMode === 'audio') {
-					audioToggleAudioBtn.addEventListener('click', toggleAudio);
-					audioEndCallBtn.addEventListener('click', endAndFindNew);
-				}
-			} catch (error) {
-				console.error('Lỗi khi kết nối với đối tác:', error);
-				handleDisconnect();
-			}
-		}
-
-
+            try {
+                isWaiting = false;
+                isConnected = true;
+                updateStatusUI('connected');
+                
+                // Thiết lập kết nối dữ liệu - khởi tạo trước
+                initiateDataConnection(partnerId);
+                
+                // Đợi một chút để đảm bảo kết nối dữ liệu được thiết lập
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Nếu là chế độ video hoặc audio, bắt đầu cuộc gọi
+                if (currentMode !== 'chat') {
+                    initiateMediaConnection(partnerId);
+                    
+                    // Nếu là chế độ audio, thiết lập audio analyzer sau khi kết nối
+                    if (currentMode === 'audio') {
+                        setTimeout(() => {
+                            setupAudioAnalyzer();
+                        }, 2000);
+                    }
+                }
+                
+                // Thiết lập các event listener cho audio controls
+                if (currentMode === 'audio') {
+                    audioToggleAudioBtn.addEventListener('click', toggleAudio);
+                    audioEndCallBtn.addEventListener('click', endAndFindNew);
+                }
+            } catch (error) {
+                console.error('Lỗi khi kết nối với đối tác:', error);
+                handleDisconnect();
+            }
+        }
         
         // Khởi tạo kết nối dữ liệu
         function initiateDataConnection(partnerId) {
@@ -814,30 +847,29 @@
         
         // Thiết lập kết nối dữ liệu
         function setupDataConnection(conn) {
-			dataConnection = conn;
-			
-			conn.on('open', () => {
-				console.log('Kết nối dữ liệu đã mở với ID:', conn.peer);
-				
-				conn.on('data', (data) => {
-					console.log('Nhận dữ liệu:', data);
-					if (data.type === 'chat') {
-						displayMessage(data.message, false);
-					}
-				});
-				
-				conn.on('close', () => {
-					console.log('Kết nối dữ liệu đã đóng');
-					handleDisconnect();
-				});
-				
-				conn.on('error', (err) => {
-					console.error('Lỗi kết nối dữ liệu:', err);
-					handleDisconnect();
-				});
-			});
-		}
-
+            dataConnection = conn;
+            
+            conn.on('open', () => {
+                console.log('Kết nối dữ liệu đã mở với ID:', conn.peer);
+                
+                conn.on('data', (data) => {
+                    console.log('Nhận dữ liệu:', data);
+                    if (data.type === 'chat') {
+                        displayMessage(data.message, false);
+                    }
+                });
+                
+                conn.on('close', () => {
+                    console.log('Kết nối dữ liệu đã đóng');
+                    handleDisconnect();
+                });
+                
+                conn.on('error', (err) => {
+                    console.error('Lỗi kết nối dữ liệu:', err);
+                    handleDisconnect();
+                });
+            });
+        }
         
         // Khởi tạo kết nối media
         function initiateMediaConnection(partnerId) {
@@ -868,207 +900,201 @@
         
         // Thiết lập kết nối media
         function setupMediaConnection(call) {
-			call.on('stream', (stream) => {
-				console.log('Đã nhận stream từ xa');
-				remoteVideo.srcObject = stream;
-				
-				// Nếu đang ở chế độ audio, thiết lập audio analyzer
-				if (currentMode === 'audio' && stream.getAudioTracks().length > 0) {
-					setTimeout(() => {
-						setupAudioAnalyzer();
-					}, 1000);
-				}
-			});
-			
-			call.on('close', () => {
-				console.log('Kết nối media đã đóng');
-				remoteVideo.srcObject = null;
-				handleDisconnect();
-			});
-			
-			call.on('error', (err) => {
-				console.error('Lỗi kết nối media:', err);
-				handleDisconnect();
-			});
-		}
-
+            call.on('stream', (stream) => {
+                console.log('Đã nhận stream từ xa');
+                remoteVideo.srcObject = stream;
+                
+                // Nếu đang ở chế độ audio, thiết lập audio analyzer
+                if (currentMode === 'audio' && stream.getAudioTracks().length > 0) {
+                    setTimeout(() => {
+                        setupAudioAnalyzer();
+                    }, 1000);
+                }
+            });
+            
+            call.on('close', () => {
+                console.log('Kết nối media đã đóng');
+                remoteVideo.srcObject = null;
+                handleDisconnect();
+            });
+            
+            call.on('error', (err) => {
+                console.error('Lỗi kết nối media:', err);
+                handleDisconnect();
+            });
+        }
         
         // Xử lý ngắt kết nối
         async function handleDisconnect() {
-			if (!isConnected && !isWaiting) return;
-			
-			console.log('Xử lý ngắt kết nối');
-			
-			isConnected = false;
-			isWaiting = false;
-			
-			// Hiển thị thông báo ngắt kết nối
-			displayMessage("Kết nối đã bị ngắt.", false);
-			
-			// Xóa kết nối
-			if (dataConnection) {
-				try {
-					dataConnection.close();
-				} catch (e) {
-					console.error('Lỗi khi đóng kết nối dữ liệu:', e);
-				}
-				dataConnection = null;
-			}
-			
-			if (mediaConnection) {
-				try {
-					mediaConnection.close();
-				} catch (e) {
-					console.error('Lỗi khi đóng kết nối media:', e);
-				}
-				mediaConnection = null;
-			}
-			
-			// Xóa stream từ xa
-			if (remoteVideo.srcObject) {
-				remoteVideo.srcObject = null;
-			}
-			
-			// Dừng hiệu ứng âm thanh nếu đang ở chế độ audio
-			if (currentMode === 'audio') {
-				stopAudioVisualization();
-			}
-			
-			// Xóa phòng từ database nếu có
-			if (roomRef) {
-				try {
-					await roomRef.remove();
-				} catch (e) {
-					console.error('Lỗi khi xóa phòng:', e);
-				}
-				roomRef = null;
-			}
-			
-			updateStatusUI('idle');
-			if (!autoReconnect) {
-				updateStatusUI('idle');
-			}
-		}
-
-
+            if (!isConnected && !isWaiting) return;
+            
+            console.log('Xử lý ngắt kết nối');
+            
+            isConnected = false;
+            isWaiting = false;
+            
+            // Hiển thị thông báo ngắt kết nối
+            displayMessage("Kết nối đã bị ngắt.", false);
+            
+            // Xóa kết nối
+            if (dataConnection) {
+                try {
+                    dataConnection.close();
+                } catch (e) {
+                    console.error('Lỗi khi đóng kết nối dữ liệu:', e);
+                }
+                dataConnection = null;
+            }
+            
+            if (mediaConnection) {
+                try {
+                    mediaConnection.close();
+                } catch (e) {
+                    console.error('Lỗi khi đóng kết nối media:', e);
+                }
+                mediaConnection = null;
+            }
+            
+            // Xóa stream từ xa
+            if (remoteVideo.srcObject) {
+                remoteVideo.srcObject = null;
+            }
+            
+            // Dừng hiệu ứng âm thanh nếu đang ở chế độ audio
+            if (currentMode === 'audio') {
+                stopAudioVisualization();
+            }
+            
+            // Xóa phòng từ database nếu có
+            if (roomRef) {
+                try {
+                    await roomRef.remove();
+                } catch (e) {
+                    console.error('Lỗi khi xóa phòng:', e);
+                }
+                roomRef = null;
+            }
+            
+            updateStatusUI('idle');
+            if (!autoReconnect) {
+                updateStatusUI('idle');
+            }
+        }
+        
         // Dọn dẹp tài nguyên
         async function cleanup() {
-			// Dừng hiệu ứng âm thanh
-			stopAudioVisualization();
-			
-			// Xóa người dùng khỏi phòng chờ
-			if (waitingRef && userId) {
-				await waitingRef.child(userId).remove();
-			}
-			
-			// Ngừng các lắng nghe Firebase
-			database.ref('rooms').off();
-			
-			// Xóa phòng nếu có
-			if (roomRef) {
-				await roomRef.remove();
-			}
-			
-			// Đóng các kết nối
-			if (dataConnection) {
-				dataConnection.close();
-			}
-			
-			if (mediaConnection) {
-				mediaConnection.close();
-			}
-			
-			// Ngừng tất cả các track
-			if (localStream) {
-				localStream.getTracks().forEach(track => track.stop());
-			}
-			
-			// Hủy peer
-			if (peer) {
-				peer.destroy();
-			}
-		}
-
+            // Dừng hiệu ứng âm thanh
+            stopAudioVisualization();
+            
+            // Xóa người dùng khỏi phòng chờ
+            if (waitingRef && userId) {
+                await waitingRef.child(userId).remove();
+            }
+            
+            // Ngừng các lắng nghe Firebase
+            database.ref('rooms').off();
+            
+            // Xóa phòng nếu có
+            if (roomRef) {
+                await roomRef.remove();
+            }
+            
+            // Đóng các kết nối
+            if (dataConnection) {
+                dataConnection.close();
+            }
+            
+            if (mediaConnection) {
+                mediaConnection.close();
+            }
+            
+            // Ngừng tất cả các track
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Hủy peer
+            if (peer) {
+                peer.destroy();
+            }
+        }
         
         // Cập nhật UI theo trạng thái
         function updateStatusUI(status) {
-			// Reset classes
-			statusMessage.classList.remove('waiting', 'connected');
-			
-			if (status === 'waiting') {
-				startBtn.classList.add('hidden');
-				endBtn.classList.remove('hidden');
-				statusMessage.textContent = 'Đang tìm kiếm người trò chuyện...';
-				statusMessage.classList.add('waiting');
-			} else if (status === 'connected') {
-				startBtn.classList.add('hidden');
-				endBtn.classList.remove('hidden');
-				statusMessage.textContent = 'Đã kết nối với người lạ. Bạn có thể trò chuyện ngay bây giờ.';
-				statusMessage.classList.add('connected');
-				
-				// Focus vào ô nhập tin nhắn
-				messageInput.focus();
-			} else { // idle
-				startBtn.classList.remove('hidden');
-				endBtn.classList.add('hidden');
-				statusMessage.textContent = 'Chọn chế độ và nhấn "Bắt đầu tìm kiếm" để kết nối với người lạ.';
-			}
-		}
-
+            // Reset classes
+            statusMessage.classList.remove('waiting', 'connected');
+            
+            if (status === 'waiting') {
+                startBtn.classList.add('hidden');
+                endBtn.classList.remove('hidden');
+                statusMessage.textContent = 'Đang tìm kiếm người trò chuyện...';
+                statusMessage.classList.add('waiting');
+            } else if (status === 'connected') {
+                startBtn.classList.add('hidden');
+                endBtn.classList.remove('hidden');
+                statusMessage.textContent = 'Đã kết nối với người lạ. Bạn có thể trò chuyện ngay bây giờ.';
+                statusMessage.classList.add('connected');
+                
+                // Focus vào ô nhập tin nhắn
+                messageInput.focus();
+            } else { // idle
+                startBtn.classList.remove('hidden');
+                endBtn.classList.add('hidden');
+                statusMessage.textContent = 'Chọn chế độ và nhấn "Bắt đầu tìm kiếm" để kết nối với người lạ.';
+            }
+        }
         
         // Gửi tin nhắn
         function sendMessage() {
-			const text = messageInput.value.trim();
-			if (!text) return;
-			
-			if (!isConnected) {
-				displayMessage("Bạn chưa được kết nối với ai. Không thể gửi tin nhắn.", false);
-				return;
-			}
-			
-			if (!dataConnection || dataConnection.open === false) {
-				console.error('Không có kết nối dữ liệu hoặc kết nối bị đóng');
-				displayMessage("Lỗi kết nối. Không thể gửi tin nhắn.", false);
-				return;
-			}
-			
-			try {
-				// Hiển thị tin nhắn của mình trước
-				displayMessage(text, true);
-				
-				// Gửi tin nhắn qua kết nối dữ liệu
-				dataConnection.send({
-					type: 'chat',
-					message: text
-				});
-				
-				console.log('Đã gửi tin nhắn:', text);
-				messageInput.value = '';
-			} catch (error) {
-				console.error('Lỗi khi gửi tin nhắn:', error);
-				displayMessage("Không thể gửi tin nhắn. Vui lòng thử lại.", false);
-			}
-		}
-
+            const text = messageInput.value.trim();
+            if (!text) return;
+            
+            if (!isConnected) {
+                displayMessage("Bạn chưa được kết nối với ai. Không thể gửi tin nhắn.", false);
+                return;
+            }
+            
+            if (!dataConnection || dataConnection.open === false) {
+                console.error('Không có kết nối dữ liệu hoặc kết nối bị đóng');
+                displayMessage("Lỗi kết nối. Không thể gửi tin nhắn.", false);
+                return;
+            }
+            
+            try {
+                // Hiển thị tin nhắn của mình trước
+                displayMessage(text, true);
+                
+                // Gửi tin nhắn qua kết nối dữ liệu
+                dataConnection.send({
+                    type: 'chat',
+                    message: text
+                });
+                
+                console.log('Đã gửi tin nhắn:', text);
+                messageInput.value = '';
+            } catch (error) {
+                console.error('Lỗi khi gửi tin nhắn:', error);
+                displayMessage("Không thể gửi tin nhắn. Vui lòng thử lại.", false);
+            }
+        }
         
         // Hiển thị tin nhắn
         function displayMessage(text, isSent) {
-			try {
-				const messageElem = document.createElement('div');
-				messageElem.classList.add('message');
-				messageElem.classList.add(isSent ? 'sent' : 'received');
-				
-				// Tăng cường bảo mật bằng cách sanitize nội dung
-				const textNode = document.createTextNode(text);
-				messageElem.appendChild(textNode);
-				
-				chatMessages.appendChild(messageElem);
-				chatMessages.scrollTop = chatMessages.scrollHeight;
-			} catch (error) {
-				console.error('Lỗi khi hiển thị tin nhắn:', error);
-			}
-		}
-
+            try {
+                const messageElem = document.createElement('div');
+                messageElem.classList.add('message');
+                messageElem.classList.add(isSent ? 'sent' : 'received');
+                
+                // Tăng cường bảo mật bằng cách sanitize nội dung
+                const textNode = document.createTextNode(text);
+                messageElem.appendChild(textNode);
+                
+                chatMessages.appendChild(messageElem);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            } catch (error) {
+                console.error('Lỗi khi hiển thị tin nhắn:', error);
+            }
+        }
         
         // Bật/tắt video
         function toggleVideo() {
@@ -1089,30 +1115,29 @@
         
         // Bật/tắt âm thanh
         function toggleAudio() {
-			if (!localStream) return;
-			
-			const audioTracks = localStream.getAudioTracks();
-			if (audioTracks.length === 0) return;
-			
-			isAudioEnabled = !isAudioEnabled;
-			audioTracks[0].enabled = isAudioEnabled;
-			
-			// Cập nhật UI cho nút trong cả hai chế độ
-			// Video mode
-			toggleAudioBtn.innerHTML = isAudioEnabled ? 
-				'<i class="fas fa-microphone"></i>' : 
-				'<i class="fas fa-microphone-slash"></i>';
-			toggleAudioBtn.classList.toggle('mute', !isAudioEnabled);
-			
-			// Audio mode
-			if (audioToggleAudioBtn) {
-				audioToggleAudioBtn.innerHTML = isAudioEnabled ? 
-					'<i class="fas fa-microphone"></i>' : 
-					'<i class="fas fa-microphone-slash"></i>';
-				audioToggleAudioBtn.classList.toggle('mute', !isAudioEnabled);
-			}
-		}
-
+            if (!localStream) return;
+            
+            const audioTracks = localStream.getAudioTracks();
+            if (audioTracks.length === 0) return;
+            
+            isAudioEnabled = !isAudioEnabled;
+            audioTracks[0].enabled = isAudioEnabled;
+            
+            // Cập nhật UI cho nút trong cả hai chế độ
+            // Video mode
+            toggleAudioBtn.innerHTML = isAudioEnabled ? 
+                '<i class="fas fa-microphone"></i>' : 
+                '<i class="fas fa-microphone-slash"></i>';
+            toggleAudioBtn.classList.toggle('mute', !isAudioEnabled);
+            
+            // Audio mode
+            if (audioToggleAudioBtn) {
+                audioToggleAudioBtn.innerHTML = isAudioEnabled ? 
+                    '<i class="fas fa-microphone"></i>' : 
+                    '<i class="fas fa-microphone-slash"></i>';
+                audioToggleAudioBtn.classList.toggle('mute', !isAudioEnabled);
+            }
+        }
         
         // Chuyển đổi chế độ
         function switchMode(mode) {
@@ -1135,7 +1160,7 @@
             }
         }
 
-		 // Hàm hỗ trợ cập nhật UI theo chế độ
+        // Hàm hỗ trợ cập nhật UI theo chế độ
         function updateUIForMode(mode) {
             videoContainer.classList.add('hidden');
             audioContainer.classList.add('hidden');
@@ -1156,129 +1181,129 @@
         
         // Kết thúc cuộc trò chuyện và tìm người mới
         async function endAndFindNew() {
-			await handleDisconnect();
-			
-			// Chỉ tự động tìm kiếm nếu công tắc bật
-			if (autoReconnect) {
-				startWaiting();
-			} else {
-				updateStatusUI('idle');
-			}
-		}
-
+            await handleDisconnect();
+            
+            // Chỉ tự động tìm kiếm nếu công tắc bật
+            if (autoReconnect) {
+                startWaiting();
+            } else {
+                updateStatusUI('idle');
+            }
+        }
         
         // Khởi tạo ứng dụng khi tải trang
         window.onload = init;
-		// Các biến toàn cục bổ sung
-		let audioContext = null;
-		let localAnalyser = null;
-		let remoteAnalyser = null;
-		let localDataArray = null;
-		let remoteDataArray = null;
-		let audioVisualizationInterval = null;
+        
+        // Các biến toàn cục bổ sung
+        let audioContext = null;
+        let localAnalyser = null;
+        let remoteAnalyser = null;
+        let localDataArray = null;
+        let remoteDataArray = null;
+        let audioVisualizationInterval = null;
 
-		// DOM Elements bổ sung
-		const audioContainer = document.getElementById('audio-container');
-		const audioToggleAudioBtn = document.getElementById('audio-toggle-audio');
-		const audioEndCallBtn = document.getElementById('audio-end-call');
-		const localAudioVisualization = document.querySelector('.local-audio-visualization');
-		const remoteAudioVisualization = document.querySelector('.audio-visualization');
+        // DOM Elements bổ sung
+        const audioContainer = document.getElementById('audio-container');
+        const audioToggleAudioBtn = document.getElementById('audio-toggle-audio');
+        const audioEndCallBtn = document.getElementById('audio-end-call');
+        const localAudioVisualization = document.querySelector('.local-audio-visualization');
+        const remoteAudioVisualization = document.querySelector('.audio-visualization');
 
-		// Thiết lập audio analyzer
-		function setupAudioAnalyzer() {
-			try {
-				if (!audioContext) {
-					audioContext = new (window.AudioContext || window.webkitAudioContext)();
-				}
-				
-				// Thiết lập cho local stream
-				if (localStream && localStream.getAudioTracks().length > 0) {
-					const localSource = audioContext.createMediaStreamSource(localStream);
-					localAnalyser = audioContext.createAnalyser();
-					localAnalyser.fftSize = 256;
-					localSource.connect(localAnalyser);
-					
-					const localBufferLength = localAnalyser.frequencyBinCount;
-					localDataArray = new Uint8Array(localBufferLength);
-				}
-				
-				// Thiết lập cho remote stream
-				if (remoteVideo.srcObject && remoteVideo.srcObject.getAudioTracks().length > 0) {
-					const remoteSource = audioContext.createMediaStreamSource(remoteVideo.srcObject);
-					remoteAnalyser = audioContext.createAnalyser();
-					remoteAnalyser.fftSize = 256;
-					remoteSource.connect(remoteAnalyser);
-					
-					const remoteBufferLength = remoteAnalyser.frequencyBinCount;
-					remoteDataArray = new Uint8Array(remoteBufferLength);
-				}
-				
-				// Bắt đầu hiệu ứng âm thanh
-				startAudioVisualization();
-			} catch (error) {
-				console.error('Lỗi khi thiết lập audio analyzer:', error);
-			}
-		}
+        // Thiết lập audio analyzer
+        function setupAudioAnalyzer() {
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                // Thiết lập cho local stream
+                if (localStream && localStream.getAudioTracks().length > 0) {
+                    const localSource = audioContext.createMediaStreamSource(localStream);
+                    localAnalyser = audioContext.createAnalyser();
+                    localAnalyser.fftSize = 256;
+                    localSource.connect(localAnalyser);
+                    
+                    const localBufferLength = localAnalyser.frequencyBinCount;
+                    localDataArray = new Uint8Array(localBufferLength);
+                }
+                
+                // Thiết lập cho remote stream
+                if (remoteVideo.srcObject && remoteVideo.srcObject.getAudioTracks().length > 0) {
+                    const remoteSource = audioContext.createMediaStreamSource(remoteVideo.srcObject);
+                    remoteAnalyser = audioContext.createAnalyser();
+                    remoteAnalyser.fftSize = 256;
+                    remoteSource.connect(remoteAnalyser);
+                    
+                    const remoteBufferLength = remoteAnalyser.frequencyBinCount;
+                    remoteDataArray = new Uint8Array(remoteBufferLength);
+                }
+                
+                // Bắt đầu hiệu ứng âm thanh
+                startAudioVisualization();
+            } catch (error) {
+                console.error('Lỗi khi thiết lập audio analyzer:', error);
+            }
+        }
 
-		// Bắt đầu hiệu ứng âm thanh
-		function startAudioVisualization() {
-			if (audioVisualizationInterval) {
-				clearInterval(audioVisualizationInterval);
-			}
-			
-			audioVisualizationInterval = setInterval(() => {
-				// Hiệu ứng cho local audio
-				if (localAnalyser && localDataArray) {
-					localAnalyser.getByteFrequencyData(localDataArray);
-					const localAverage = getAverageVolume(localDataArray);
-					
-					if (localAverage > 10) {
-						localAudioVisualization.classList.add('active');
-					} else {
-						localAudioVisualization.classList.remove('active');
-					}
-				}
-				
-				// Hiệu ứng cho remote audio
-				if (remoteAnalyser && remoteDataArray) {
-					remoteAnalyser.getByteFrequencyData(remoteDataArray);
-					const remoteAverage = getAverageVolume(remoteDataArray);
-					
-					if (remoteAverage > 10) {
-						remoteAudioVisualization.classList.add('active');
-					} else {
-						remoteAudioVisualization.classList.remove('active');
-					}
-				}
-			}, 100);
-		}
+        // Bắt đầu hiệu ứng âm thanh
+        function startAudioVisualization() {
+            if (audioVisualizationInterval) {
+                clearInterval(audioVisualizationInterval);
+            }
+            
+            audioVisualizationInterval = setInterval(() => {
+                // Hiệu ứng cho local audio
+                if (localAnalyser && localDataArray) {
+                    localAnalyser.getByteFrequencyData(localDataArray);
+                    const localAverage = getAverageVolume(localDataArray);
+                    
+                    if (localAverage > 10) {
+                        localAudioVisualization.classList.add('active');
+                    } else {
+                        localAudioVisualization.classList.remove('active');
+                    }
+                }
+                
+                // Hiệu ứng cho remote audio
+                if (remoteAnalyser && remoteDataArray) {
+                    remoteAnalyser.getByteFrequencyData(remoteDataArray);
+                    const remoteAverage = getAverageVolume(remoteDataArray);
+                    
+                    if (remoteAverage > 10) {
+                        remoteAudioVisualization.classList.add('active');
+                    } else {
+                        remoteAudioVisualization.classList.remove('active');
+                    }
+                }
+            }, 100);
+        }
 
-		// Tính trung bình âm lượng
-		function getAverageVolume(array) {
-			let values = 0;
-			for (let i = 0; i < array.length; i++) {
-				values += array[i];
-			}
-			return values / array.length;
-		}
+        // Tính trung bình âm lượng
+        function getAverageVolume(array) {
+            let values = 0;
+            for (let i = 0; i < array.length; i++) {
+                values += array[i];
+            }
+            return values / array.length;
+        }
 
-		// Dừng hiệu ứng âm thanh
-		function stopAudioVisualization() {
-			if (audioVisualizationInterval) {
-				clearInterval(audioVisualizationInterval);
-				audioVisualizationInterval = null;
-			}
-			
-			if (audioContext) {
-				audioContext.close();
-				audioContext = null;
-			}
-			
-			localAnalyser = null;
-			remoteAnalyser = null;
-			localDataArray = null;
-			remoteDataArray = null;
-		}
+        // Dừng hiệu ứng âm thanh
+        function stopAudioVisualization() {
+            if (audioVisualizationInterval) {
+                clearInterval(audioVisualizationInterval);
+                audioVisualizationInterval = null;
+            }
+            
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            localAnalyser = null;
+            remoteAnalyser = null;
+            localDataArray = null;
+            remoteDataArray = null;
+        }
     </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'936ac22e88e353b1',t:'MTc0NTcxOTU2NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
