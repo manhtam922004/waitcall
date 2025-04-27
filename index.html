@@ -8,7 +8,12 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
-    <style>
+    
+	<!-- Firebase UI -->
+    <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
+    <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
+
+	<style>
         * {
             margin: 0;
             padding: 0;
@@ -403,10 +408,102 @@
 			font-size: 14px;
 			color: #2c3e50;
 		}
+		.auth-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .profile-form {
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .filter-options {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        #user-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #ecf0f1;
+            border-radius: 5px;
+        }
+
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
+
+	<!-- Phần xác thực -->
+    <div id="auth-container" class="auth-container">
+        <div id="firebaseui-auth-container"></div>
+    </div>
+
+    <!-- Form thông tin cá nhân -->
+    <div id="profile-form" class="profile-form hidden">
+        <h2>Thông tin cá nhân</h2>
+        <div class="form-group">
+            <label>Giới tính:</label>
+            <select id="gender">
+                <option value="male">Nam</option>
+                <option value="female">Nữ</option>
+                <option value="other">Khác</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Tuổi:</label>
+            <input type="number" id="age" min="18" max="100">
+        </div>
+        <div class="form-group">
+            <label>Quốc gia:</label>
+            <select id="country"></select>
+        </div>
+        <div class="form-group">
+            <label>Tỉnh/Thành phố:</label>
+            <select id="city"></select>
+        </div>
+        <button id="save-profile" class="primary-btn">Lưu thông tin</button>
+    </div>
+
+    <!-- Phần chính -->
+	<div id="main-container" class="container hidden">
+		<!-- Giữ nguyên header cũ và thêm mới -->
+        <header>
+            <h1>WaitCall</h1>
+            <p>Trò chuyện ngẫu nhiên với người lạ</p>
+            <div id="user-info"></div>
+            <button id="logout-btn" class="primary-btn">Đăng xuất</button>
+        </header>
+			
+
     <div class="container">
         <header>
             <h1>WaitCall</h1>
@@ -561,7 +658,7 @@
                     });
                 });
                 
-				// Thêm sự kiện cho công tắc
+				  // Thêm sự kiện cho công tắc
 				document.getElementById('auto-reconnect-switch').addEventListener('change', function(e) {
 					autoReconnect = e.target.checked;
 				});
@@ -574,18 +671,13 @@
             }
         }
         
-        // Khởi tạo PeerJS với server cụ thể
+        // Khởi tạo PeerJS
         function initPeerJS() {
             if (peer) {
                 peer.destroy();
             }
             
-            peer = new Peer(userId, {
-                host: '0.peerjs.com',
-                port: 443,
-                path: '/peerjs',
-                secure: true
-            });
+            peer = new Peer(userId);
             
             peer.on('open', (id) => {
                 console.log('PeerJS ID đã mở:', id);
@@ -1285,5 +1377,5 @@
 			remoteDataArray = null;
 		}
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'936a597f0f908844',t:'MTc0NTcxNTI3Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
