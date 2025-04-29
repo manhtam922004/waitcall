@@ -10,45 +10,75 @@
 <body>
     <div class="container mt-5">
         <h1 class="text-center">Audio Call</h1>
+        <div class="alert alert-info" id="statusMessage">Connecting to PeerJS server...</div>
         <div class="alert alert-info" id="peerId">Your Peer ID will appear here</div>
         <div class="form-group">
             <input type="text" class="form-control" id="remotePeerId" placeholder="Enter peer ID to call">
         </div>
-        <button id="callButton" class="btn btn-primary btn-block">Call</button>
+        <button id="callButton" class="btn btn-primary btn-block" disabled>Call</button>
         <audio id="remoteAudio" autoplay class="mt-3"></audio>
     </div>
 
     <script>
         var peer = new Peer({host: '0.peerjs.com', port: 443, secure: true});
 
+        function updateStatus(message, type = 'info') {
+            var statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerText = message;
+            statusDiv.className = 'alert alert-' + type;
+        }
+
         peer.on('open', function(id) {
+            updateStatus('Connected to PeerJS server.', 'success');
             document.getElementById('peerId').innerText = 'Your peer ID: ' + id;
+            document.getElementById('callButton').disabled = false;
+        });
+
+        peer.on('error', function(err) {
+            updateStatus('Peer error: ' + err, 'danger');
         });
 
         peer.on('call', function(call) {
+            updateStatus('Incoming call from ' + call.peer, 'info');
             navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
                 call.answer(stream);
                 call.on('stream', function(remoteStream) {
                     document.getElementById('remoteAudio').srcObject = remoteStream;
+                    updateStatus('Connected', 'success');
+                });
+                call.on('error', function(err) {
+                    updateStatus('Call error: ' + err, 'danger');
+                });
+                call.on('close', function() {
+                    updateStatus('Call ended', 'info');
                 });
             }).catch(function(err) {
-                console.error('Failed to get local stream', err);
+                updateStatus('Failed to get local stream: ' + err, 'danger');
+                console.error('Failed to get local stream for answering call', err);
             });
         });
 
         document.getElementById('callButton').addEventListener('click', function() {
             var remotePeerId = document.getElementById('remotePeerId').value;
             if (remotePeerId) {
+                updateStatus('Calling ' + remotePeerId + '...', 'info');
                 navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
                     var call = peer.call(remotePeerId, stream);
                     call.on('stream', function(remoteStream) {
                         document.getElementById('remoteAudio').srcObject = remoteStream;
+                        updateStatus('Connected', 'success');
+                    });
+                    call.on('error', function(err) {
+                        updateStatus('Call error: ' + err, 'danger');
+                    });
+                    call.on('close', function() {
+                        updateStatus('Call ended', 'info');
                     });
                 }).catch(function(err) {
-                    console.error('Failed to get local stream', err);
+                    updateStatus('Failed to get local stream: ' + err, 'danger');
                 });
             } else {
-                alert('Please enter a peer ID to call');
+                updateStatus('Please enter a peer ID to call', 'warning');
             }
         });
     </script>
