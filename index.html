@@ -16,19 +16,30 @@
             <input type="text" class="form-control" id="remotePeerId" placeholder="Enter peer ID to call">
         </div>
         <button id="callButton" class="btn btn-primary btn-block" disabled>Call</button>
-        <audio id="localAudio" autoplay muted class="mt-3"></audio>
         <audio id="remoteAudio" autoplay controls class="mt-3"></audio>
     </div>
 
     <script>
-        var peer = new Peer({host: 'peerjs.com', port: 443, secure: true, path: '/peerjs'});
+        // Cấu hình PeerJS với máy chủ STUN và TURN
+        var peer = new Peer({
+            host: '0.peerjs.com',
+            port: 443,
+            secure: true,
+            config: {
+                'iceServers': [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    // Placeholder cho máy chủ TURN, cần thay bằng thông tin thực tế
+                    
+                ]
+            }
+        });
 
         var audio = document.getElementById('remoteAudio');
         audio.onplaying = function() {
             console.log('Remote audio is playing');
         };
         audio.onerror = function() {
-            console.error('Remote audio element error', audio.error);
+            console.error('Remote audio error:', audio.error);
         };
 
         function updateStatus(message, type = 'info') {
@@ -50,21 +61,14 @@
         peer.on('call', function(call) {
             updateStatus('Incoming call from ' + call.peer, 'info');
             navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
-                console.log('Local stream for answering obtained with ' + stream.getAudioTracks().length + ' audio tracks');
-                document.getElementById('localAudio').srcObject = stream;
                 call.answer(stream);
                 call.on('stream', function(remoteStream) {
-                    console.log('Remote stream received');
-                    console.log('Stream active:', remoteStream.active);
-                    var audioTracks = remoteStream.getAudioTracks();
-                    console.log('Number of audio tracks:', audioTracks.length);
-                    if (audioTracks.length > 0) {
-                        console.log('First audio track readyState:', audioTracks[0].readyState);
-                    }
+                    console.log('Remote stream received:', remoteStream);
                     audio.srcObject = remoteStream;
                     audio.muted = false;
+                    audio.volume = 1;
                     audio.play().catch(function(err) {
-                        console.error('Error playing remote audio', err);
+                        console.error('Error playing remote audio:', err);
                     });
                     updateStatus('Connected', 'success');
                 });
@@ -85,21 +89,14 @@
             if (remotePeerId) {
                 updateStatus('Calling ' + remotePeerId + '...', 'info');
                 navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
-                    console.log('Local stream for calling obtained with ' + stream.getAudioTracks().length + ' audio tracks');
-                    document.getElementById('localAudio').srcObject = stream;
                     var call = peer.call(remotePeerId, stream);
                     call.on('stream', function(remoteStream) {
-                        console.log('Remote stream received');
-                        console.log('Stream active:', remoteStream.active);
-                        var audioTracks = remoteStream.getAudioTracks();
-                        console.log('Number of audio tracks:', audioTracks.length);
-                        if (audioTracks.length > 0) {
-                            console.log('First audio track readyState:', audioTracks[0].readyState);
-                        }
+                        console.log('Remote stream received:', remoteStream);
                         audio.srcObject = remoteStream;
                         audio.muted = false;
+                        audio.volume = 1;
                         audio.play().catch(function(err) {
-                            console.error('Error playing remote audio', err);
+                            console.error('Error playing remote audio:', err);
                         });
                         updateStatus('Connected', 'success');
                     });
