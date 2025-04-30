@@ -492,12 +492,13 @@
     <script>
         // Khởi tạo Firebase
         const firebaseConfig = {
-            authDomain: "waitcall-87f5e.firebaseapp.com",
-            databaseURL: "https://waitcall-87f5e-default-rtdb.asia-southeast1.firebasedatabase.app/",
-            projectId: "waitcall-87f5e",
-            storageBucket: "waitcall-87f5e.firebasestorage.app",
-            messagingSenderId: "535766267900",
-            appId: "1:535766267900:web:572b04459493c157bd6479"
+            apiKey: "AIzaSyAl91PG5SUQlqwtoTyv3AF-KF79pZBDxOY",
+            authDomain: "waitcall-95d60.firebaseapp.com",
+            databaseURL: "https://waitcall-95d60-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "waitcall-95d60",
+            storageBucket: "waitcall-95d60.firebasestorage.app",
+            messagingSenderId: "133568729774",
+            appId: "1:133568729774:web:32162b66f5b021b7e7d33f",
         };
         
         firebase.initializeApp(firebaseConfig);
@@ -621,11 +622,10 @@
             }
             
             const iceServers = [
-                { urls: "stun:stun.relay.metered.ca:80" },
-                { urls: "turn:global.relay.metered.ca:80", username: "995ca68bcff47b2746260963", credential: "ivvsUJ1C/Sbiko2W" },
-                { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: "995ca68bcff47b2746260963", credential: "ivvsUJ1C/Sbiko2W" },
-                { urls: "turn:global.relay.metered.ca:443", username: "995ca68bcff47b2746260963", credential: "ivvsUJ1C/Sbiko2W" },
-                { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: "995ca68bcff47b2746260963", credential: "ivvsUJ1C/Sbiko2W" }
+                { urls: 'turn:relay1.expressturn.com:3478', username: 'efPIUBIBH3U4IK8NOJ', credential: 'gYdRWK0C6KRv9uX1' },
+                { urls: 'turn:relay1.expressturn.com:3478', username: 'efZIMBC840LYVN1PCG', credential: 'd0FoTsKX6aWJjmj5' },
+                { urls: 'turn:relay1.expressturn.com:3478', username: 'efX51BHDW5FDLPOTY4', credential: 'uyFPLUJfk9cQ5WsA' },
+                { urls: 'turn:relay1.expressturn.com:3478', username: 'efUZ3N3V769535YL81', credential: 'HUhaUwQvzY0s0ILv' }
             ];
             
             peer = new Peer(userId, {
