@@ -1,3 +1,4 @@
+<DOCUMENT filename="1.8.html">
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -308,8 +309,8 @@
             height: 100%;
         }
         .audio-visualization {
-            width: 300px;
-            height: 300px;
+            width: 120px;
+            height: 120px;
             border-radius: 50%;
             background-color: #3498db;
             display: flex;
@@ -324,7 +325,7 @@
             transform: scale(1.05);
         }
         .audio-visualization .avatar {
-            font-size: 80px;
+            font-size: 40px;
             color: white;
         }
         .audio-visualization .username {
@@ -460,7 +461,9 @@
             <button class="mode-btn" data-mode="chat">Chat Only</button>
         </div>
         
-       
+        <div class="status" id="status-message">
+            Chọn chế độ và nhấn "Bắt đầu tìm kiếm" để kết nối với người lạ.
+        </div>
         
         <div class="online-info" id="online-info">
             Đang tải thông tin...
@@ -668,6 +671,7 @@
                 window.addEventListener('beforeunload', cleanup);
                 
                 userCountry = await getCountryFromIP();
+                console.log('Quốc gia của người dùng:', userCountry);
             } catch (error) {
                 console.error('Lỗi khởi tạo:', error);
                 statusMessage.textContent = 'Có lỗi xảy ra khi khởi tạo ứng dụng.';
@@ -918,6 +922,7 @@
                         displayMessage('', false, data.data);
                     } else if (data.type === 'country') {
                         partnerCountry = data.country;
+                        console.log('Nhận được quốc gia của đối tác:', partnerCountry);
                         document.getElementById('remote-username').textContent = `Người lạ (${partnerCountry})`;
                         document.getElementById('remote-username-audio').textContent = `Người lạ (${partnerCountry})`;
                         updateOnlineInfo();
@@ -1077,7 +1082,11 @@
                 statusMessage.textContent = 'Đã kết nối với người lạ. Bạn có thể trò chuyện ngay bây giờ.';
                 statusMessage.classList.add('connected');
                 messageInput.focus();
-            } 
+            } else {
+                startBtn.classList.remove('hidden');
+                endBtn.classList.add('hidden');
+                statusMessage.textContent = 'Chọn chế độ và nhấn "Bắt đầu tìm kiếm" để kết nối với người lạ.';
+            }
         }
         
         function sendMessage() {
@@ -1177,11 +1186,25 @@
                     currentMode = mode;
                     updateUIForMode(mode);
                     resetModeButtons(mode);
+                    if (mode === 'chat') {
+                        chatBox.classList.add('active');
+                        chatToggle.style.display = 'none';
+                    } else {
+                        chatBox.classList.remove('active');
+                        chatToggle.style.display = 'flex';
+                    }
                 });
             } else {
                 currentMode = mode;
                 updateUIForMode(mode);
                 resetModeButtons(mode);
+                if (mode === 'chat') {
+                    chatBox.classList.add('active');
+                    chatToggle.style.display = 'none';
+                } else {
+                    chatBox.classList.remove('active');
+                    chatToggle.style.display = 'flex';
+                }
             }
         }
         
@@ -1283,5 +1306,5 @@
         
         window.onload = init;
     </script>
-</body>
-</html>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'938a8c0cfac7ed7e',t:'MTc0NjA1Mjg5MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html></DOCUMENT>
