@@ -173,32 +173,26 @@
             background-color: #e74c3c;
         }
         .chat-box {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow: hidden;
-            background-color: white;
             position: absolute;
-            right: 0;
             top: 0;
+            left: 0;
+            width: 100%;
             height: 100%;
-            width: 300px;
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 100;
         }
         .chat-box.active {
-            transform: translateX(0);
+            display: block;
         }
         .chat-toggle {
             position: absolute;
-            right: 0;
+            right: 10px;
             top: 50%;
             transform: translateY(-50%);
             width: 40px;
             height: 40px;
-            border-radius: 50% 0 0 50%;
+            border-radius: 50%;
             background-color: #3498db;
             color: white;
             border: none;
@@ -206,12 +200,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 11;
+            z-index: 101;
         }
         .chat-messages {
-            flex: 1;
-            padding: 15px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 60px);
             overflow-y: auto;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -237,11 +235,16 @@
             margin-top: 5px;
         }
         .message-input {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
             display: flex;
             padding: 10px;
             border-top: 1px solid #ddd;
             align-items: center;
             gap: 10px;
+            background-color: white;
         }
         .message-input input[type="text"] {
             flex: 1;
@@ -289,19 +292,9 @@
             }
             .chat-box {
                 width: 100%;
-                height: 300px;
-                top: auto;
-                bottom: 0;
-                transform: translateY(100%);
-            }
-            .chat-box.active {
-                transform: translateY(0);
-            }
-            .chat-toggle {
-                top: auto;
-                bottom: 20px;
-                right: 20px;
-                border-radius: 50%;
+                height: 100%;
+                top: 0;
+                left: 0;
             }
         }
         .audio-container {
@@ -539,7 +532,6 @@
     </div>
 
     <script>
-        // Khởi tạo Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyAl91PG5SUQlqwtoTyv3AF-KF79pZBDxOY",
             authDomain: "waitcall-95d60.firebaseapp.com",
@@ -553,7 +545,6 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         
-        // Biến toàn cục
         let userId = null;
         let localStream = null;
         let peer = null;
@@ -569,8 +560,8 @@
         let autoReconnect = false;
         let partnerCountry = '';
         let onlineUsers = 0;
+        let userCountry = '';
         
-        // DOM Elements
         const startBtn = document.getElementById('start-btn');
         const endBtn = document.getElementById('end-btn');
         const statusMessage = document.getElementById('status-message');
@@ -596,7 +587,6 @@
         const localAudioVisualization = document.querySelector('.local-audio-visualization');
         const remoteAudioVisualization = document.querySelector('.audio-visualization');
         
-        // Audio visualization variables
         let audioContext = null;
         let localAnalyser = null;
         let remoteAnalyser = null;
@@ -604,12 +594,10 @@
         let remoteDataArray = null;
         let audioVisualizationInterval = null;
         
-        // Tạo ID ngẫu nhiên
         function generateUserId() {
             return Math.random().toString(36).substring(2, 15);
         }
         
-        // Lấy thông tin quốc gia từ IP
         async function getCountryFromIP() {
             try {
                 const response = await fetch('https://ipapi.co/json/');
@@ -621,7 +609,6 @@
             }
         }
         
-        // Cập nhật số người online
         function updateOnlineUsers() {
             database.ref('online_users').on('value', (snapshot) => {
                 onlineUsers = snapshot.numChildren();
@@ -629,29 +616,23 @@
             });
         }
         
-        // Cập nhật thông tin online
         function updateOnlineInfo() {
             onlineInfo.textContent = `Đang online: ${onlineUsers} người${partnerCountry ? ` | Người lạ từ: ${partnerCountry}` : ''}`;
         }
         
-        // Khởi tạo
         async function init() {
             try {
                 userId = generateUserId();
                 console.log('User ID:', userId);
                 
-                // Đăng ký người dùng online
                 const userOnlineRef = database.ref('online_users').child(userId);
                 userOnlineRef.set({ timestamp: firebase.database.ServerValue.TIMESTAMP });
                 userOnlineRef.onDisconnect().remove();
                 
-                // Cập nhật số người online
                 updateOnlineUsers();
                 
-                // Khởi tạo PeerJS
                 initPeerJS();
                 
-                // Thiết lập sự kiện
                 startBtn.addEventListener('click', startWaiting);
                 endBtn.addEventListener('click', endAndFindNew);
                 sendMessageBtn.addEventListener('click', sendMessage);
@@ -675,7 +656,6 @@
                     autoReconnect = e.target.checked;
                 });
                 
-                // Emoji picker
                 emojiBtn.addEventListener('click', () => {
                     emojiPicker.classList.toggle('active');
                 });
@@ -684,18 +664,18 @@
                     emojiPicker.classList.remove('active');
                 });
                 
-                // Image sending
                 imageBtn.addEventListener('click', () => imageInput.click());
                 imageInput.addEventListener('change', handleImageUpload);
                 
                 window.addEventListener('beforeunload', cleanup);
+                
+                userCountry = await getCountryFromIP();
             } catch (error) {
                 console.error('Lỗi khởi tạo:', error);
                 statusMessage.textContent = 'Có lỗi xảy ra khi khởi tạo ứng dụng.';
             }
         }
         
-        // Xử lý upload ảnh
         async function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -709,9 +689,7 @@
                 const reader = new FileReader();
                 reader.onload = () => {
                     const base64Image = reader.result;
-                    // Hiển thị ảnh cục bộ
                     displayMessage('', true, base64Image);
-                    // Gửi ảnh
                     dataConnection.send({
                         type: 'image',
                         data: base64Image
@@ -725,7 +703,6 @@
             event.target.value = '';
         }
         
-        // Khởi tạo PeerJS
         function initPeerJS() {
             if (peer) peer.destroy();
             
@@ -755,7 +732,6 @@
             peer.on('error', (err) => console.error('Lỗi PeerJS:', err));
         }
         
-        // Khởi tạo media stream
         async function initMediaStream(mode) {
             try {
                 if (localStream) {
@@ -777,7 +753,6 @@
             }
         }
         
-        // Bắt đầu chờ
         async function startWaiting() {
             if (isWaiting || isConnected) return;
             
@@ -819,14 +794,14 @@
             }
         }
         
-        // Thêm vào phòng chờ
         async function addToWaitingRoom() {
             try {
                 await waitingRef.child(userId).set({
                     timestamp: firebase.database.ServerValue.TIMESTAMP,
-                    mode: currentMode
+                    mode: currentMode,
+                    country: userCountry
                 });
-                console.log('Đã thêm vào phòng chờ với mode:', currentMode);
+                console.log('Đã thêm vào phòng chờ với mode:', currentMode, 'và quốc gia:', userCountry);
                 listenForRoomCreation();
             } catch (error) {
                 console.error('Lỗi khi thêm vào phòng chờ:', error);
@@ -835,7 +810,6 @@
             }
         }
         
-        // Lắng nghe khi có phòng mới
         function listenForRoomCreation() {
             database.ref('rooms').orderByChild('participants/' + userId).equalTo(true)
                 .on('child_added', async (snapshot) => {
@@ -862,7 +836,6 @@
                 });
         }
         
-        // Tạo phòng và kết nối
         async function createRoomAndConnect(partnerId) {
             try {
                 roomRef = database.ref('rooms').push();
@@ -885,7 +858,6 @@
             }
         }
         
-        // Tham gia phòng và kết nối
         async function joinRoomAndConnect(partnerId) {
             try {
                 await connectWithPartner(partnerId);
@@ -896,14 +868,13 @@
             }
         }
         
-        // Kết nối với đối tác
         async function connectWithPartner(partnerId) {
             try {
                 isWaiting = false;
                 isConnected = true;
                 
-                // Lấy thông tin quốc gia của partner
-                partnerCountry = await getCountryFromIP();
+                const partnerCountrySnapshot = await database.ref('waiting').child(partnerId).once('value');
+                partnerCountry = partnerCountrySnapshot.val()?.country || 'Không xác định';
                 document.getElementById('remote-username').textContent = `Người lạ (${partnerCountry})`;
                 document.getElementById('remote-username-audio').textContent = `Người lạ (${partnerCountry})`;
                 updateOnlineInfo();
@@ -925,18 +896,21 @@
             }
         }
         
-        // Khởi tạo kết nối dữ liệu
         function initiateDataConnection(partnerId) {
             dataConnection = peer.connect(partnerId);
             setupDataConnection(dataConnection);
         }
         
-        // Thiết lập kết nối dữ liệu
         function setupDataConnection(conn) {
             dataConnection = conn;
             
             conn.on('open', () => {
                 console.log('Kết nối dữ liệu đã mở với ID:', conn.peer);
+                
+                conn.send({
+                    type: 'country',
+                    country: userCountry
+                });
                 
                 conn.on('data', (data) => {
                     console.log('Nhận dữ liệu:', data);
@@ -944,6 +918,13 @@
                         displayMessage(data.message, false);
                     } else if (data.type === 'image') {
                         displayMessage('', false, data.data);
+                    } else if (data.type === 'country') {
+                        partnerCountry = data.country;
+                        document.getElementById('remote-username').textContent = `Người lạ (${partnerCountry})`;
+                        document.getElementById('remote-username-audio').textContent = `Người lạ (${partnerCountry})`;
+                        updateOnlineInfo();
+                    } else if (data.type === 'disconnect') {
+                        handleDisconnect();
                     }
                 });
                 
@@ -959,7 +940,6 @@
             });
         }
         
-        // Khởi tạo kết nối media
         function initiateMediaConnection(partnerId) {
             if (!localStream) {
                 console.error('Không có localStream');
@@ -970,7 +950,6 @@
             setupMediaConnection(mediaConnection);
         }
         
-        // Trả lời cuộc gọi
         async function answerCall(call) {
             try {
                 if (!localStream && currentMode !== 'chat') {
@@ -985,7 +964,6 @@
             }
         }
         
-        // Thiết lập kết nối media
         function setupMediaConnection(call) {
             call.on('stream', (stream) => {
                 console.log('Đã nhận stream từ xa');
@@ -1008,7 +986,6 @@
             });
         }
         
-        // Xử lý ngắt kết nối
         async function handleDisconnect() {
             if (!isConnected && !isWaiting) return;
             
@@ -1023,6 +1000,7 @@
             
             if (dataConnection) {
                 try {
+                    dataConnection.send({ type: 'disconnect' });
                     dataConnection.close();
                 } catch (e) {
                     console.error('Lỗi khi đóng kết nối dữ liệu:', e);
@@ -1057,15 +1035,21 @@
             
             updateStatusUI('idle');
             
-            // Tự động tìm kiếm nếu autoReconnect được bật
             if (autoReconnect) {
                 setTimeout(startWaiting, 1000);
             }
         }
         
-        // Dọn dẹp tài nguyên
         async function cleanup() {
             stopAudioVisualization();
+            
+            if (dataConnection) {
+                try {
+                    dataConnection.send({ type: 'disconnect' });
+                } catch (e) {
+                    console.error('Lỗi khi gửi thông báo ngắt kết nối:', e);
+                }
+            }
             
             if (waitingRef && userId) await waitingRef.child(userId).remove();
             database.ref('rooms').off();
@@ -1081,7 +1065,6 @@
             if (peer) peer.destroy();
         }
         
-        // Cập nhật UI theo trạng thái
         function updateStatusUI(status) {
             statusMessage.classList.remove('waiting', 'connected');
             
@@ -1103,7 +1086,6 @@
             }
         }
         
-        // Gửi tin nhắn
         function sendMessage() {
             const text = messageInput.value.trim();
             if (!text) return;
@@ -1133,7 +1115,6 @@
             }
         }
         
-        // Hiển thị tin nhắn
         function displayMessage(text, isSent, image = null) {
             try {
                 const messageElem = document.createElement('div');
@@ -1155,7 +1136,6 @@
             }
         }
         
-        // Bật/tắt video
         function toggleVideo() {
             if (!localStream) return;
             
@@ -1171,7 +1151,6 @@
             toggleVideoBtn.classList.toggle('mute', !isVideoEnabled);
         }
         
-        // Bật/tắt âm thanh
         function toggleAudio() {
             if (!localStream) return;
             
@@ -1194,7 +1173,6 @@
             }
         }
         
-        // Chuyển đổi chế độ
         function switchMode(mode) {
             if (currentMode === mode) return;
             
@@ -1213,7 +1191,6 @@
             }
         }
         
-        // Cập nhật UI theo chế độ
         function updateUIForMode(mode) {
             videoContainer.classList.add('hidden');
             audioContainer.classList.add('hidden');
@@ -1225,19 +1202,16 @@
             }
         }
         
-        // Cập nhật nút chế độ
         function resetModeButtons(mode) {
             modeBtns.forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.mode === mode);
             });
         }
         
-        // Kết thúc cuộc trò chuyện và tìm người mới
         async function endAndFindNew() {
             await handleDisconnect();
         }
         
-        // Thiết lập audio analyzer
         function setupAudioAnalyzer() {
             try {
                 if (!audioContext) {
@@ -1270,7 +1244,6 @@
             }
         }
         
-        // Bắt đầu hiệu ứng âm thanh
         function startAudioVisualization() {
             if (audioVisualizationInterval) clearInterval(audioVisualizationInterval);
             
@@ -1289,7 +1262,6 @@
             }, 100);
         }
         
-        // Tính trung bình âm lượng
         function getAverageVolume(array) {
             let values = 0;
             for (let i = 0; i < array.length; i++) {
@@ -1298,7 +1270,6 @@
             return values / array.length;
         }
         
-        // Dừng hiệu ứng âm thanh
         function stopAudioVisualization() {
             if (audioVisualizationInterval) {
                 clearInterval(audioVisualizationInterval);
@@ -1316,7 +1287,6 @@
             remoteDataArray = null;
         }
         
-        // Khởi tạo ứng dụng
         window.onload = init;
     </script>
 </body>
