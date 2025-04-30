@@ -20,16 +20,18 @@
     </div>
 
     <script>
-        // Cấu hình PeerJS với máy chủ STUN và TURN
+        // Cấu hình PeerJS với máy chủ TURN
         var peer = new Peer({
             host: '0.peerjs.com',
             port: 443,
             secure: true,
             config: {
                 'iceServers': [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    // Placeholder cho máy chủ TURN, cần thay bằng thông tin thực tế
-                    { urls: 'relay1.expressturn.com:3478', username: 'efPIUBIBH3U4IK8NOJ', credential: 'gYdRWK0C6KRv9uX1' }
+                    {
+                        urls: 'turn:relay1.expressturn.com:3478',
+                        username: 'efPIUBIBH3U4IK8NOJ',
+                        credential: 'gYdRWK0C6KRv9uX1'
+                    }
                 ]
             }
         });
