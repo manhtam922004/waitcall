@@ -460,9 +460,7 @@
             <button class="mode-btn" data-mode="chat">Chat Only</button>
         </div>
         
-        <div class="status" id="status-message">
-            Chọn chế độ và nhấn "Bắt đầu tìm kiếm" để kết nối với người lạ.
-        </div>
+       
         
         <div class="online-info" id="online-info">
             Đang tải thông tin...
@@ -1079,11 +1077,7 @@
                 statusMessage.textContent = 'Đã kết nối với người lạ. Bạn có thể trò chuyện ngay bây giờ.';
                 statusMessage.classList.add('connected');
                 messageInput.focus();
-            } else {
-                startBtn.classList.remove('hidden');
-                endBtn.classList.add('hidden');
-                statusMessage.textContent = 'Chọn chế độ và nhấn "Bắt đầu tìm kiếm" để kết nối với người lạ.';
-            }
+            } 
         }
         
         function sendMessage() {
