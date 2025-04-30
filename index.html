@@ -308,6 +308,11 @@
             padding: 20px;
             height: 100%;
         }
+        .remote-audio-wrapper, .local-audio-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
         .audio-visualization {
             width: 120px;
             height: 120px;
@@ -316,7 +321,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 30px;
             position: relative;
             transition: transform 0.2s ease;
         }
@@ -328,12 +332,32 @@
             font-size: 40px;
             color: white;
         }
-        .audio-visualization .username {
-            position: absolute;
-            bottom: -30px;
+        .local-audio-visualization {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: #2ecc71;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: transform 0.2s ease;
+        }
+        .local-audio-visualization.active {
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.8);
+            transform: scale(1.05);
+        }
+        .local-audio-visualization .avatar {
+            font-size: 40px;
+            color: white;
+        }
+        .audio-username {
+            position: static;
             background-color: transparent;
             color: #2c3e50;
-            font-weight: bold;
+            padding: 0;
+            margin-top: 10px;
+            font-size: 16px;
         }
         .audio-level {
             position: absolute;
@@ -347,7 +371,7 @@
         .audio-controls {
             display: flex;
             gap: 20px;
-            margin-top: 20px;
+            margin: 20px 0;
         }
         .audio-control-btn {
             width: 60px;
@@ -369,32 +393,6 @@
         }
         .audio-control-btn.mute {
             background-color: #e74c3c;
-            color: white;
-        }
-        .local-audio-wrapper {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-top: 40px;
-        }
-        .local-audio-visualization {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background-color: #2ecc71;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            transition: transform 0.2s ease;
-        }
-        .local-audio-visualization.active {
-            box-shadow: 0 0 15px rgba(46, 204, 113, 0.8);
-            transform: scale(1.05);
-        }
-        .local-audio-visualization .avatar {
-            font-size: 40px;
             color: white;
         }
         .switch-container {
@@ -497,10 +495,12 @@
             </div>
             
             <div class="audio-container hidden" id="audio-container">
-                <div class="audio-visualization">
-                    <div class="audio-level"></div>
-                    <i class="fas fa-user avatar"></i>
-                    <div class="username" id="remote-username-audio">Người lạ</div>
+                <div class="remote-audio-wrapper">
+                    <div class="audio-visualization">
+                        <div class="audio-level"></div>
+                        <i class="fas fa-user avatar"></i>
+                    </div>
+                    <div class="username audio-username" id="remote-username-audio">Người lạ</div>
                 </div>
                 
                 <div class="audio-controls">
@@ -513,7 +513,7 @@
                         <div class="audio-level"></div>
                         <i class="fas fa-user avatar"></i>
                     </div>
-                    <div class="username">Bạn</div>
+                    <div class="username audio-username">Bạn</div>
                 </div>
             </div>
             
@@ -645,8 +645,10 @@
                 audioToggleAudioBtn.addEventListener('click', toggleAudio);
                 audioEndCallBtn.addEventListener('click', endAndFindNew);
                 chatToggle.addEventListener('click', () => {
-                    chatBox.classList.toggle('active');
-                    emojiPicker.classList.remove('active');
+                    if (currentMode !== 'chat') {
+                        chatBox.classList.toggle('active');
+                        emojiPicker.classList.remove('active');
+                    }
                 });
                 
                 modeBtns.forEach(btn => {
@@ -671,7 +673,6 @@
                 window.addEventListener('beforeunload', cleanup);
                 
                 userCountry = await getCountryFromIP();
-                console.log('Quốc gia của người dùng:', userCountry);
             } catch (error) {
                 console.error('Lỗi khởi tạo:', error);
                 statusMessage.textContent = 'Có lỗi xảy ra khi khởi tạo ứng dụng.';
@@ -875,10 +876,8 @@
                 isWaiting = false;
                 isConnected = true;
                 
-                const partnerCountrySnapshot = await database.ref('waiting').child(partnerId).once('value');
-                partnerCountry = partnerCountrySnapshot.val()?.country || 'Không xác định';
-                document.getElementById('remote-username').textContent = `Người lạ (${partnerCountry})`;
-                document.getElementById('remote-username-audio').textContent = `Người lạ (${partnerCountry})`;
+                document.getElementById('remote-username').textContent = 'Người lạ';
+                document.getElementById('remote-username-audio').textContent = 'Người lạ';
                 updateOnlineInfo();
                 
                 updateStatusUI('connected');
@@ -922,7 +921,6 @@
                         displayMessage('', false, data.data);
                     } else if (data.type === 'country') {
                         partnerCountry = data.country;
-                        console.log('Nhận được quốc gia của đối tác:', partnerCountry);
                         document.getElementById('remote-username').textContent = `Người lạ (${partnerCountry})`;
                         document.getElementById('remote-username-audio').textContent = `Người lạ (${partnerCountry})`;
                         updateOnlineInfo();
@@ -1033,7 +1031,6 @@
                 roomRef = null;
             }
             
-            chatBox.classList.remove('active');
             emojiPicker.classList.remove('active');
             
             updateStatusUI('idle');
@@ -1186,36 +1183,27 @@
                     currentMode = mode;
                     updateUIForMode(mode);
                     resetModeButtons(mode);
-                    if (mode === 'chat') {
-                        chatBox.classList.add('active');
-                        chatToggle.style.display = 'none';
-                    } else {
-                        chatBox.classList.remove('active');
-                        chatToggle.style.display = 'flex';
-                    }
                 });
             } else {
                 currentMode = mode;
                 updateUIForMode(mode);
                 resetModeButtons(mode);
-                if (mode === 'chat') {
-                    chatBox.classList.add('active');
-                    chatToggle.style.display = 'none';
-                } else {
-                    chatBox.classList.remove('active');
-                    chatToggle.style.display = 'flex';
-                }
             }
         }
         
         function updateUIForMode(mode) {
             videoContainer.classList.add('hidden');
             audioContainer.classList.add('hidden');
+            chatBox.classList.remove('active');
+            chatToggle.classList.remove('hidden');
             
             if (mode === 'video') {
                 videoContainer.classList.remove('hidden');
             } else if (mode === 'audio') {
                 audioContainer.classList.remove('hidden');
+            } else if (mode === 'chat') {
+                chatBox.classList.add('active');
+                chatToggle.classList.add('hidden');
             }
         }
         
